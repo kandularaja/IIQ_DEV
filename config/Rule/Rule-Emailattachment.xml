@@ -1,0 +1,313 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1705658437119" id="c0a800918d161242818d212a4dff158d" language="beanshell" modified="1705658580615" name="EmailAttachment" type="Workflow">
+  <Source>
+  import java.util.ArrayList;
+  import java.util.HashMap; 
+  import java.util.Iterator;
+
+  import java.io.BufferedWriter;
+  import java.io.File;
+  import java.io.FileInputStream;
+  import java.io.FileOutputStream;
+  import java.io.FileWriter;
+  import java.util.zip.ZipEntry;
+  import java.util.zip.ZipOutputStream;
+
+  import sailpoint.object.Application;
+  import sailpoint.object.Certification;
+  import sailpoint.object.CertificationAction;
+  import sailpoint.object.CertificationEntity;
+  import sailpoint.object.CertificationGroup;
+  import sailpoint.object.CertificationItem;
+  import sailpoint.object.EmailFileAttachment;
+  import sailpoint.object.EmailOptions;
+  import sailpoint.object.EmailTemplate;
+  import sailpoint.object.Filter;
+  import sailpoint.object.Identity; 
+  import sailpoint.object.Link;
+  import sailpoint.object.ManagedAttribute;
+  import sailpoint.object.QueryOptions;
+
+  import sailpoint.tools.EmailException;
+  import sailpoint.tools.RetryableEmailException;
+
+  import org.apache.log4j.Logger;
+  import org.apache.log4j.Level;
+
+  Logger log = Logger.getLogger("sailpoint.services.bshdemo.emailReporting");
+  // TODO: Remove this forced log level set before checking in this Rule.
+  log.setLevel(Level.DEBUG);
+
+  // Create a full report of what CertificationItems have decisions made.
+  // Note: this is a _lot_ of information for large installations.  This needs
+  // to be filtered/restricted/reduced for most installations.
+
+  // Create a temporary file to "spool" the delimited file contents to.
+  File tempCSVFile = File.createTempFile("iiqCertReport-", ".tmp.csv");
+  if (null == tempCSVFile) {
+    log.error("Failed to create a temporary file to spool report data.");
+    return "Error";
+  }
+  tempCSVFile.deleteOnExit(); // Request the JVM delete this file on error.
+  log.debug("temporary file created: " + tempCSVFile.getAbsolutePath());
+
+  // Construct a buffered writer for our output file.  This will allow us
+  // to efficiently stream text content out to the file.
+  BufferedWriter bw = new BufferedWriter(new FileWriter(tempCSVFile));
+
+  // Define a delimiter list of attributes that we will write to the file.
+  String delimtier = ",";
+  String newLine = "\n";   // Unix-style, some systems prefer \r\n, others \r.
+  ArrayList columnNames = new ArrayList();
+  columnNames.add("certificationGroup");
+  columnNames.add("certificationName");
+  columnNames.add("certifier");
+  columnNames.add("targetId");
+  columnNames.add("description");
+  columnNames.add("certifyingActor");
+  columnNames.add("approvalStatus");
+  columnNames.add("decisionDate");
+
+  // Initialize the CSV output file with a first row that contains the column headers.
+  boolean commaPrefix = false;
+  for (String columnName : columnNames) {
+    if (commaPrefix) bw.append(delimtier);
+    bw.append(columnName);
+    commaPrefix = true;   
+  }
+  bw.append("\n");
+
+  // The main record that we are exporting in the CSV report are certificaiton
+  // line items and the decisions on them.  That's the CertificationItem class.
+  QueryOptions qo = new QueryOptions();
+  qo.setOrderBy("created");
+
+  Iterator it = context.search(CertificationItem.class, qo);
+  while (it.hasNext()) {
+
+    CertificationItem ci = (CertificationItem) it.next();
+
+    CertificationEntity ce = ci.getCertificationEntity();
+    Certification cert = ci.getCertification();
+
+    // Make a hash map to store the column data that we will output into the CSV file.
+    HashMap outputRow = new HashMap();
+
+    String certificationName = cert.getName();
+    outputRow.put("certificationName", certificationName);
+
+    String cgName = cert.getGroupDefinitionName();
+    if (null != cgName) {
+      outputRow.put("certificationGroup", cgName);
+    } else {
+      List certGroups = cert.getCertificationGroups();
+      if (log.isTraceEnabled()) for (CertificationGroup cg : certGroups) {
+        log.trace("CertificationGroup: \n " + cg.toXml());
+      }
+      if (1 == certGroups.size()) {
+        CertificationGroup cg = certGroups.get(0);
+        outputRow.put("certificationGroup", cg.getName());
+      }   
+    }
+
+    String targetId = ci.getIdentity();
+    if (null == targetId) {
+      targetId = "not an Identity";
+    }
+    outputRow.put("targetId", targetId);
+
+    // Determine who the certifying party is for this certificaiton item.
+    String certifier = "tbd";
+    if (null != ci.getOwner()) {      
+      certifier = ci.getOwner().getName();
+    } else if (null != ci.getParent()) {
+      if (null != ci.getParent().getOwner()) {         
+        certifier = ci.getParent().getOwner().getName();
+      } else {         
+        if (null != cert.getOwner()) {
+          certifier = cert.getOwner().getName();
+        } else {
+          certifier = cert.getCertifiers().get(0);
+        }      
+      }
+    }
+    outputRow.put("certifier", certifier);
+
+    // Get the type from this certification item.
+    CertificationItem.Type ciType = ci.getType();
+    String desc = "unknown";
+    if (CertificationItem.Type.Exception == ciType) {
+      String exceptionAttrName = ci.getExceptionAttributeName();
+      String exceptionAttrValue = ci.getExceptionAttributeValue();
+      if ((null != exceptionAttrName) @and (null != exceptionAttrValue)) {
+        desc = "Has " + exceptionAttrName + " = " + exceptionAttrValue;
+      }
+    } else if (CertificationItem.Type.Bundle == ciType) {
+      String roleName = ci.getBundle();
+      if (null != roleName) {
+        desc = "Has role: " + roleName;
+      }   
+    } else {
+      desc = "TODO: address description for line item type: " + ciType.toString();
+    }
+    outputRow.put("description", desc);
+
+    String approvalStatus = "not approved";
+    CertificationAction ca = ci.getAction();
+    if ( (null != ca) @and (ca.isApproved()) ) {
+      approvalStatus = "approved";
+      log.debug("CertificationAction: \n" + ca.toXml());
+      outputRow.put("approvalStatus", approvalStatus);
+      outputRow.put("certifyingActor", ca.getActorName());
+    }
+
+    // From IdentityIQ's JavaDocs:
+    // ca.isReviewed(): Flag indicating that the delegated action has been reviewed.
+    String delegationReveiewed = "n/a";
+    if ( (null != ca) @and (ca.isReviewed()) ) {
+      delegationReveiewed = "yes";
+    }
+    outputRow.put("delegationReveiewed", delegationReveiewed);
+
+    String decisionDate = "n/a";
+    if ( (null != ca) @and (null != ca.getDecisionDate()) ) {
+      // Could do GMT string here too; depends on the date format desired in CSV.
+      decisionDate = ca.getDecisionDate().toLocaleString();
+    }
+    outputRow.put("decisionDate", decisionDate);
+    log.debug("certifier:" + certifier + " target Identity:" + targetId + " certItem: [" + desc + "]"); 
+
+    context.decache(ci); // Remove this ci from memory to prevent cache bloat.
+
+    // Output this line item's data to the CSV file.
+    boolean commaPrefix = false;
+    for (String columnName : columnNames) {
+      if (commaPrefix) bw.append(delimtier);
+      String valToWrite = outputRow.get(columnName);
+      if (null != valToWrite)  {
+        if (valToWrite.contains(",")) {
+          bw.append("\"" + valToWrite + "\"");
+        } else {
+          bw.append(valToWrite);
+        }     
+      } else {
+        bw.append("n/a");
+      }
+      commaPrefix = true;   
+    }
+    bw.append("\n");
+
+  }
+
+  // Close out our buffered writer.
+  bw.flush();
+  bw.close();
+
+  // At this point we have a built out CSV file.  If this were a simple "brute force"
+  // report then we could stop now and go home.  This rule does better and zips up
+  // the CSV file and attaches it to an email to send out.
+
+  // What do we want the attachment to be named when attached to the email?
+  // This is a pretend file name, it doesn't have to exist anywhere:
+  String attachmentName = "iiqCertReport.zip";
+  // What do we want the CSV file to be named when someone "un-zips" it?
+  String contentsName   = "iiqCertReport.csv";
+
+  // Now we create a .zip file to complress the temporary file's data.
+  File tempZipFile = File.createTempFile("iiqCertReport-", ".tmp.zip");
+  if (null == tempZipFile) {
+    log.error("Failed to create temp file for ZIP spooling.");
+    return;
+  }
+  tempZipFile.deleteOnExit();
+  String tempZipName = tempZipFile.getAbsolutePath();
+  log.debug("Created temp zip file:" + tempZipName);
+
+  // Compress the CSV file data into the ZIP file.
+  // First we open a Zipped output stream that writes to the zip file.
+  FileOutputStream fileWriter = new FileOutputStream(tempZipFile);
+  ZipOutputStream zipWriter = new ZipOutputStream(fileWriter);
+  ZipEntry ze = new ZipEntry(contentsName);
+  zipWriter.putNextEntry(ze);
+
+  // Write our report data from the CSV temp file out to the ZIP file.
+  // Use a 4k buffer to do the data writes.  On modern CPUs 4k blocks are easy.
+  byte[] buf = new byte[4096];
+  FileInputStream fis = new FileInputStream(tempCSVFile);
+  while ((len = fis.read(buf)) > 0) {
+    zipWriter.write(buf, 0, len);
+  }
+  fis.close();
+
+  // Close our output stream to the zip temp file.
+  zipWriter.closeEntry();
+  zipWriter.close();
+  fileWriter.close();
+  log.debug("Data written and flushed to temp zip file:" + tempZipName);
+
+  // In order to attache the .zip file to an email template we need to have all of
+  // the data in memory. Read the ZIP file data into RAM with a buffered reader.
+  RandomAccessFile f = new RandomAccessFile(tempZipFile, "r");
+  int zipFileSize = (int) f.length();
+  byte[] b = new byte[zipFileSize];
+  f.read(b);
+  f.close();
+  log.debug("Read " + zipFileSize + " bytes of data into RAM to attach to email.");
+
+  // Construct an email file attachement to send the zip data with email.
+  EmailFileAttachment attachment = new EmailFileAttachment((attachmentName.endsWith(".zip") ? attachmentName : (attachmentName + ".zip")),
+    sailpoint.object.EmailFileAttachment.MimeType.MIME_CSV,b);
+
+  // Load the email template we want to send the report with.  Scream if this fails.
+  String templateName = "Bean Shell Developers Guide - Example Cert Report";
+  EmailTemplate template = (EmailTemplate) context.getObject(EmailTemplate.class, templateName);
+  if (template == null) {
+    throw new GeneralException("Email Template was not found: " + templateName);
+  }
+  log.debug("Loaded email template: " + templateName);
+
+  // CSV of email addresses to send the email to.
+  String emailDestination = "spadmin@example.com";
+
+  log.debug("Will send emails to users: " + emailDestination);
+
+  // Examples of adding arguments to an email template if needed for an email template.
+  Map templateArgs = new HashMap();
+  /*
+templateArgs.put("testField1", "This is a test.  This is a test of template parameters.");
+templateArgs.put("variableX", "some value to put in the template"); // How to populate fields.
+templateArgs.put("variableY", "some other to put in the template");
+*/
+
+  EmailOptions options = new EmailOptions(emailDestination, templateArgs);
+  options.setVariable("variableZ", "some third to put in the template"); // Another option for args.
+  options.addAttachment(attachment);
+  options.setSendImmediate(true);
+  options.setNoRetry(true);
+
+  try {
+    context.sendEmailNotification(template, options);
+  } catch (RetryableEmailException e) {
+    // Some kind of retry-able email exception happened.
+    log.error("RetryableEmailException:", e);
+    log.error(e.getMessage()); 
+  } catch (EmailException e) {
+    log.error(e);
+    throw new GeneralException(e);
+  } catch (GeneralException e) {
+    log.error(e);
+    throw new GeneralException(e);
+  }
+
+  log.debug("Email sent.");
+
+  // Delete our temp CSV and ZIP file.
+  tempZipFile.delete();
+  tempCSVFile.delete();
+
+  log.debug("Temporary files purged, bean shell report execution complete.");
+
+  return "Success";
+  </Source>
+</Rule>

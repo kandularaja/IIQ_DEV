@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE CorrelationConfig PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<CorrelationConfig created="1681985386863" id="c0a81db3879319e381879e24396f077b" modified="1681985431642" name="jdbcacccorelation">
+  <AttributeAssignments>
+    <Filter operation="EQ" property="name" value="Name"/>
+  </AttributeAssignments>
+</CorrelationConfig>

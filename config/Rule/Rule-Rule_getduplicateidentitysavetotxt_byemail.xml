@@ -1,0 +1,99 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1704177325250" id="c0a800918c7b1d9e818cc8e254c223af" language="beanshell" modified="1704256744798" name="Rule_GetDuplicateIDentitySavetoTxt_ByEmail">
+  <Source>
+  import java.util.*;
+  import sailpoint.object.Identity;
+  import java.util.*;
+  import java.sql.*;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningPlan;;
+  import sailpoint.api.Provisioner;
+  import sailpoint.object.Filter;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.ObjectUtil;
+  import sailpoint.object.WorkGroup;
+  import sailpoint.object.GroupFactory;
+  import sailpoint.object.ManagedAttribute;
+  import sailpoint.object.Application;
+  import sailpoint.object.CustomGlobal;
+  
+     import java.io.BufferedWriter;
+  import java.io.File;
+  import java.io.FileWriter;
+  import java.util.ArrayList;
+  import java.util.List;
+  
+   import sailpoint.tools.Util;
+  
+   static  writeLine(String filepath,String dataToWrite, String headerStr) throws Exception
+  {
+    System.out.println("dataToWrite : "+dataToWrite);
+    System.out.println("filepath : "+filepath);
+    System.out.println("headerStr : "+headerStr);
+    File file = new File(filepath);
+    System.out.println("*****==================="+file);
+    System.out.println("  file.exists() : "+file.exists());
+    if(!file.exists()){
+
+      StringBuilder sb = new StringBuilder();
+      sb.append(headerStr);
+      sb.append("\n").append(dataToWrite);
+      Util.writeFile(filepath, sb.toString());
+
+      return;
+    }
+    System.out.println("===================");
+    FileWriter fw =  new FileWriter(file,true);
+    BufferedWriter bw = new BufferedWriter(fw);
+
+    bw.newLine();
+    bw.write(dataToWrite);
+    bw.close();
+    fw.close();
+    System.out.println("*****Line has been written successfully!!");
+    System.out.println("***** End - writeLine()");
+  }
+  
+ List multiIdentitties = new ArrayList();
+  List identities = context.getObjects(Identity.class);
+   
+ for(Identity id:identities)
+ {
+  String emailDup=id.getEmail();  
+   if(emailDup!=null)  
+   {     
+    if(multiIdentitties!=null)
+     {
+      if(multiIdentitties.contains(emailDup))
+            continue;
+     }
+     
+        Filter myFilter = Filter.eq("email",emailDup);
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(myFilter);
+
+        List id1 = context.getObjects(Identity.class,qo);    
+     
+       if(id1.size()>1)
+       {     
+         String comment="";
+         multiIdentitties.add(emailDup);
+         System.out.println("Email:: "+emailDup+"-Has multiple Identities");
+          writeLine("C:\\Eshiam\\DuplivateEmailIDIdnetities.txt","Email:: "+emailDup+"-Has multiple Identities","Multiple email ID Identites List");
+         
+         for(Identity id2: id1)
+         {
+        	comment=id2.getName()+"\n"+comment;
+         } 
+          System.out.println(comment);
+         writeLine("C:\\Eshiam\\DuplivateEmailIDIdnetities.txt",comment,"Multiple email ID Identites List");
+         //\\DuplivateEmailIDIdnetities.txt
+       }  
+   }
+ } 
+ 
+  </Source>
+</Rule>

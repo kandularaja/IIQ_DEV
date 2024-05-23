@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger created="1680671769358" disabled="true" handler="sailpoint.api.WorkflowTriggerHandler" id="c0a81db3874f10c281874fd8030e0010" modified="1711710349291" name="Leaver" type="Rule">
+  <Description>Disable all accounts when a user leaves.</Description>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="businessProcess"/>
+        <entry key="workflow" value="Lifecycle Event - Leaver"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+  <TriggerRule>
+    <Reference class="sailpoint.object.Rule" id="c0a81db38b7f179d818bae26dc6d36f6" name="Leaver_Rule"/>
+  </TriggerRule>
+</IdentityTrigger>

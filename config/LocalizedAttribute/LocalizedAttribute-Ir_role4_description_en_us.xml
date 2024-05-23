@@ -1,0 +1,3 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE LocalizedAttribute PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<LocalizedAttribute attribute="description" created="1683194577849" id="c0a81db387e61fe58187e63703b90030" locale="en_US" modified="1699435778294" name="IR_Role4:description:en_US" targetClass="Bundle" targetId="c0a81db387e61fe58187e63703b2002f" targetName="IR_Role4" value="IR_Role4 desc"/>

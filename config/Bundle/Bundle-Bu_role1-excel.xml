@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Bundle PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Bundle created="1682333168195" displayName="Bu_Role1-Excel-Name" id="c0a81db387a310888187b2def24302c1" modified="1682333339513" name="Bu_Role1-Excel" type="business">
+  <Attributes>
+    <Map>
+      <entry key="allowDuplicateAccounts" value="false"/>
+      <entry key="allowMultipleAssignments" value="false"/>
+      <entry key="approvalScheme" value="spadmin"/>
+      <entry key="mergeTemplates" value="false"/>
+      <entry key="sysDescriptions">
+        <value>
+          <Map>
+            <entry key="en_US" value="BU Role Uploaded from excel"/>
+          </Map>
+        </value>
+      </entry>
+    </Map>
+  </Attributes>
+  <Owner>
+    <Reference class="sailpoint.object.Identity" id="c0a81db3874f140081874fc432ae00ec" name="spadmin"/>
+  </Owner>
+  <Requirements>
+    <Reference class="sailpoint.object.Bundle" id="c0a81db3877a1fef81877f4ece1d02a2" name="IT-Role1"/>
+  </Requirements>
+  <RoleScorecard created="1682333339513" id="c0a81db387a310888187b2e18f6902c4" modified="1682333342493" permittedEntitlements="1" provisionedEntitlements="1"/>
+</Bundle>

@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1690367865930" id="c0a8010589521a9e818991c6b44a3ac8" modified="1690368658313" name="AD_ManagerApproval" type="Workflow">
+  <Attributes>
+    <Map>
+      <entry key="pageTitle" value="Manager Approval Form"/>
+    </Map>
+  </Attributes>
+  <Section label="Reading User Data From Form" name="Section For user Data">
+    <Attributes>
+      <Map>
+        <entry key="readOnly" value="true"/>
+      </Map>
+    </Attributes>
+    <Field displayName="displayName" name="name" type="identity">
+      <Attributes>
+        <Map>
+          <entry key="valueProperty" value="name"/>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field displayName="Firstname" name="firstname" type="String"/>
+    <Field displayName="Lastname" name="lastname" type="String"/>
+    <Field displayName="Email" name="mail" type="String"/>
+  </Section>
+  <Section label="Reading Group Data From Form" name="Section Group Selection">
+    <Field displayName="MARKET_NAME(s)" filterString="application.name == &quot;Americana-CrunchTime&quot; &amp;&amp; type == &quot;market&quot;" helpKey="select marketgroup(s)" multi="true" name="marketgroup" postBack="true" type="ManagedAttribute" value="ref:marketgroup"/>
+    <Field displayName="CONCEPT_CODE(s)" filterString="application.name == &quot;Americana-CrunchTime&quot; &amp;&amp; type == &quot;Concept&quot;" helpKey="select concept(s)" multi="true" name="concept" postBack="true" type="ManagedAttribute" value="ref:concept"/>
+    <Field displayName="LOCATION_CODE(s)" filterString="application.name == &quot;Americana-CrunchTime&quot; &amp;&amp; type == &quot;location&quot;" helpKey="select locationgroup(s)" multi="true" name="locationgroup" postBack="true" type="ManagedAttribute" value="ref:locationgroup"/>
+  </Section>
+  <Button action="back" label="rejected"/>
+  <Button action="next" label="approved"/>
+</Form>

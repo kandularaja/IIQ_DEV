@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Configuration PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Configuration created="1685966727105" id="c0a81db3887a1d1b81888b72a7c10587" modified="1715683296032" name="SAML">
+  <Attributes>
+    <Map>
+      <entry key="IdentityNow">
+        <value>
+          <SAMLConfig assertionConsumerService="" entityId="" idpServiceUrl="" issuer=""/>
+        </value>
+      </entry>
+    </Map>
+  </Attributes>
+</Configuration>

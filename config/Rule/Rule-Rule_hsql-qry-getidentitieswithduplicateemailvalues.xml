@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1704183313678" id="c0a800918c7b1d9e818cc93db50e245c" language="beanshell" modified="1704187775784" name="Rule_Hsql-qry-GetIdentitiesWithDuplicateEmailValues" type="Validation">
+  <Description>
+    This rule will get the identityNames with the duplicate email values. i.e., for example a1, b1 are two identities having the same email value aaa@email.com
+  </Description>
+  <Source>
+  import sailpoint.tools.Util;
+  import sailpoint.object.Filter;
+  import sailpoint.object.Identity;
+  import sailpoint.object.QueryOptions;
+
+  import sailpoint.object.CertificationEntity;
+  import sailpoint.object.CertificationItem;
+  import sailpoint.object.Certification;
+  import sailpoint.object.CertificationAction;
+
+    List returnList = new ArrayList();
+
+    String hqlQuery = "SELECT email From Identity GROUP BY email HAVING COUNT(email) > 1";
+
+    Iterator it = context.search(hqlQuery, null,new QueryOptions());
+    while (it != null @and it.hasNext())
+    {
+      Object email = it.next();
+      if (email != null) {
+
+        List nameList = new ArrayList();
+        QueryOptions options = new QueryOptions();
+        options.addFilter(Filter.eq("email", email));
+       
+        List  idList = context.getObjects(Identity.class,options);
+        if (Util.nullSafeSize(idList) > 0)
+        {
+          for (Identity id : idList)
+          {
+            if (id != null)
+            {
+              String name = id.getName();
+              nameList.add(name);
+            }
+          }
+        }
+        Map map = new HashMap();
+        map.put(email,nameList);
+        returnList.add(map);
+      }
+    }
+    return returnList;
+  </Source>
+</Rule>

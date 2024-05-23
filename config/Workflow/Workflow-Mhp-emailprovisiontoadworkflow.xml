@@ -1,0 +1,120 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1713843396784" explicitTransitions="true" id="c0a81db48edf16fe818f0906e0b01f40" modified="1715324348169" name="MHP-EmailProvisiontoADWorkflow" type="IdentityLifecycle">
+  <Variable name="plan"/>
+  <Variable name="identityName"/>
+  <Step icon="Start" name="Start" posX="90" posY="31">
+    <Approval mode="serial" name="Telephone Provision Form" owner="ADWEmailOwnersGroup" return="telePhone" send="identityName">
+      <Arg name="workItemNotificationTemplate" value="Work Item Assignment"/>
+      <Arg name="workItemName" value="Telephone Provision Form"/>
+      <Arg name="requesterName" value="ref:identityName"/>
+      <Form name="Telephone Provision Form">
+        <Attributes>
+          <Map>
+            <entry key="hideIncompleteFields">
+              <value>
+                <Boolean></Boolean>
+              </value>
+            </entry>
+            <entry key="includeHiddenFields">
+              <value>
+                <Boolean></Boolean>
+              </value>
+            </entry>
+            <entry key="pageTitle" value="Telephone Provision Form"/>
+          </Map>
+        </Attributes>
+        <Section name="Section 2" type="text">
+          <Field>
+            <Script>
+              <Source>
+             return "Telephone number of "+identityName;
+             </Source>
+            </Script>
+          </Field>
+        </Section>
+        <Section name="Section 1">
+          <Field displayName="Telephone" name="telePhone" required="true" type="integer"/>
+        </Section>
+        <Button action="next" label="Submit"/>
+      </Form>
+    </Approval>
+    <Transition to="UpdateIIQ" when="script:(telePhone != null)"/>
+  </Step>
+  <Step icon="Task" name="UpdateIIQ" posX="246" posY="33">
+    <Script>
+      <Source>
+        import sailpoint.object.Identity;
+        import sailpoint.api.SailPointContext;  
+        import sailpoint.object.ProvisioningPlan;
+        import sailpoint.object.ProvisioningPlan.AccountRequest;
+        import sailpoint.object.ProvisioningPlan.AttributeRequest;
+        import sailpoint.api.Provisioner;
+        System.out.println("identityName::::"+identityName);
+        System.out.println("telePhone::::"+telePhone);
+
+        Identity ids = context.getObjectByName(Identity.class,identityName);
+        ProvisioningPlan plan = new ProvisioningPlan();
+
+        ArrayList accountRequests = new ArrayList();
+        AccountRequest accountRequest = new AccountRequest();
+        accountRequest.setOperation(AccountRequest.Operation.Modify);
+        accountRequest.setApplication("IIQ");
+        accountRequest.setNativeIdentity(ids.getName());
+
+        accountRequest.add(new AttributeRequest("telePhone", ProvisioningPlan.Operation.Set, telePhone));
+        accountRequests.add(accountRequest);
+        plan.setAccountRequests(accountRequests);
+        plan.setIdentity(ids);
+
+        System.out.println("IIQ plan"+plan.toXml());
+
+        Provisioner pr=new Provisioner(context);
+        pr.execute(plan);       
+
+      </Source>
+    </Script>
+    <Transition to="Generateplan"/>
+  </Step>
+  <Step icon="Task" name="Generateplan" posX="246" posY="33">
+    <Script>
+      <Source>
+        import sailpoint.object.Identity;
+        import sailpoint.object.Application;
+        import sailpoint.api.SailPointContext;  
+        import sailpoint.object.ProvisioningPlan;
+        import sailpoint.object.ProvisioningPlan.AccountRequest;
+        import sailpoint.object.ProvisioningPlan.AttributeRequest;
+        import sailpoint.api.Provisioner;
+
+        Identity ids = context.getObjectByName(Identity.class,identityName);
+
+        Application application = context.getObjectByName(Application.class,"AD-Application");
+        String dn = "CN="+ ids.getName()+",OU=People,OU=Demo,DC=Eshiam,DC=com";
+
+        ProvisioningPlan plan1 = new ProvisioningPlan();
+
+        ArrayList accountRequests = new ArrayList();
+        AccountRequest accountRequest = new AccountRequest();
+        accountRequest.setOperation(AccountRequest.Operation.Modify);
+        accountRequest.setApplication(application.getName());
+        accountRequest.setNativeIdentity(dn);
+
+        String tp=(String) ids.getAttribute("telePhone");
+
+        accountRequest.add(new AttributeRequest("telephoneNumber", ProvisioningPlan.Operation.Set,tp));
+        accountRequests.add(accountRequest);
+        plan1.setAccountRequests(accountRequests);
+        plan1.setIdentity(ids);
+
+        System.out.println("AD plan"+plan1.toXml());
+
+        Provisioner pr1=new Provisioner(context);
+        pr1.execute(plan1);
+
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+  <Step icon="Stop" name="Stop" posX="402" posY="32"/>
+</Workflow>

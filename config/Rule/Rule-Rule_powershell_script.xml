@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1703574470478" id="c0a800918c7b1d9e818ca4f37f4e1387" language="beanshell" modified="1703749426028" name="Rule_POWERSHELL_SCRIPT" type="ConnectorAfterCreate">
+  <Attributes>
+    <Map>
+      <entry key="ObjectOrientedScript" value="true"/>
+      <entry key="disabled" value="false"/>
+      <entry key="extension" value=".ps1"/>
+      <entry key="program" value="powershell.exe"/>
+      <entry key="timeout" value="20"/>
+    </Map>
+  </Attributes>
+  <Source>
+
+
+  #$logFile = "C:\ConnectorBeforeCreate\$(Get-Date -format "yyyy-MM-dd").ConnectorBeforeCreate.log"
+
+
+    $logFile = "C:\ConnectorBeforeCreate\ConnectorBeforeCreate.log"
+
+
+    Function writeToLog() {
+    param([string]$message)
+      Add-Content ($(Get-Date -format "yyyy-MM-dd HH:mm:ss") + "::$message") -Path $logFile
+  }
+
+  writeToLog("Starting Enable Mailbox Powershell Script")
+   
+    Add-type -path utils.dll
+    # Read the environment variables
+    $sReader = New-Object System.IO.StringReader([System.String]$env:Request)
+    $sResult = New-Object System.IO.StringReader([System.String]$env:Result)
+//# Export all user accounts to a CSV file
+//Get-ADUser -Filter * -Properties * | Export-Csv -Path "C:\SailPoint\AllUsers.csv" -NoTypeInformation
+
+    # Form the xml reader objects
+    $xmlReader = [ System.xml.XmlTextReader]([sailpoint.utils.xml.XmlUtil]::getReader($sReader))
+    $xmlReader_Result = [ System.xml.XmlTextReader]([sailpoint.utils.xml.XmlUtil]::getReader($sResult))
+
+    writeToLog("XML Reader :: $xmlReader")
+    writeToLog("XML Result :: $xmlReader_Result")
+
+    # Create SailPoint objects
+    $requestObject = New-Object Sailpoint.Utils.objects.AccountRequest($xmlReader)
+    $resultObject = New-Object Sailpoint.Utils.objects.ServiceResult($xmlReader_Result)
+
+
+    $resultErrorCount = $resultObject.Errors.count
+
+    writeToLog("Error Count :: $resultErrorCount")
+
+
+    </Source>
+</Rule>

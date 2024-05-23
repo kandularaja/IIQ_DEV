@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1688449233151" id="c0a81db3890c103381891f6ab0ff0c31" name="ApplicationProvisioningPlolicyForm" type="Application">
+  <Attributes>
+    <Map>
+      <entry key="IIQTemplateOwnerDefinition">
+        <value>
+          <DynamicValue value="IIQApplicationOwner"/>
+        </value>
+      </entry>
+      <entry key="hideIncompleteFields" value="true"/>
+      <entry key="includeHiddenFields" value="true"/>
+      <entry key="isWizard" value="true"/>
+      <entry key="pageTitle" value="ApplicationProvisioningPlolicyForm"/>
+      <entry key="subtitle" value="Application Provisioning Policy"/>
+      <entry key="title" value="Application Provisioning Policy Form. "/>
+    </Map>
+  </Attributes>
+  <Description></Description>
+  <Section label="Section A" name="Section A">
+    <Attributes>
+      <Map>
+        <entry key="subtitle" value="Section A"/>
+      </Map>
+    </Attributes>
+    <Field displayName="Application" helpKey="Application Names" name="Application" type="Application"/>
+  </Section>
+  <Section label="Section B" name="Section B">
+    <Attributes>
+      <Map>
+        <entry key="subtitle" value="Section B"/>
+      </Map>
+    </Attributes>
+    <Field displayName="Identities" helpKey="Identities" name="Identities" type="sailpoint.object.Identity"/>
+  </Section>
+</Form>

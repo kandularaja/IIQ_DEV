@@ -1,0 +1,78 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1705996779670" id="c0a800918d161242818d355500961a92" language="beanshell" modified="1715755895942" name="AD Powershell">
+  <Attributes>
+    <Map>
+      <entry key="ObjectOrientedScript" value="true"/>
+      <entry key="disabled" value="false"/>
+      <entry key="extension" value=".ps1"/>
+      <entry key="program" value="powershell.exe"/>
+      <entry key="timeout" value="300"/>
+    </Map>
+  </Attributes>
+  <Source>
+
+  Function writeToLog() {
+    param([string]$message)
+      Add-Content ($(Get-Date -format "yyyy-MM-dd HH:mm:ss") + "::$message") -Path $logFile
+  }
+  Function login
+  {
+    $securePassword = ConvertTo-SecureString $pwdText -AsPlainText -force 
+      writeToLog("securePassword: " + $securePassword) 
+      $credential = New-Object System.Management.Automation.PsCredential($username,$securePassword)  
+      # writeToLog("credential: " + $credential)
+      $session = New-PSSession -computername $serverFQN -credential $credential 
+      Import-PSSession -Session $session
+      # writeToLog("session: " + $session)
+  }
+
+  Add-type -path utils.dll
+    writeToLog("Start PS Rule") 
+    $logFile = "C:\ConnectorBeforeCreate\ConnectorBeforeCreate.log"
+    $pwdText = "Kandula@500"
+    $username = "ESHIAM\Administrator"
+    $serverFQN = "192.168.178.3.americana.global"
+    $session = ""
+
+    # Read the environment variables
+    $sReader = New-Object System.IO.StringReader([System.String]$env:Request)
+    $sResult = New-Object System.IO.StringReader([System.String]$env:Result)
+
+    # Form the xml reader objects
+    $xmlReader = [ System.xml.XmlTextReader]([sailpoint.utils.xml.XmlUtil]::getReader($sReader))
+    $xmlReader_Result = [ System.xml.XmlTextReader]([sailpoint.utils.xml.XmlUtil]::getReader($sResult))
+
+    # Create SailPoint objects
+    $requestObject = New-Object Sailpoint.Utils.objects.AccountRequest($xmlReader)
+    $resultObject = New-Object Sailpoint.Utils.objects.ServiceResult($xmlReader_Result)
+
+    # Loop through the attributes from the request
+    $atrBaseDN = ""
+    $atrDepartmentName = ""
+    foreach ($attribute in $requestObject.AttributeRequests)
+  {
+    if($attribute.Name -eq "baseDN")
+    {
+      $atrBaseDN=$attribute.value;
+      writeToLog("atrBaseDN::$atrBaseDN")  
+    }
+    if($attribute.Name -eq "departmentName")
+    {  
+      $atrDepartmentName=$attribute.value;
+      writeToLog("atrDepartmentName::$atrDepartmentName")  
+    }
+  } 
+
+ # $session = login
+   New-ADOrganizationalUnit $atrDepartmentName -path $atrBaseDN
+   ### $cmd = "New-ADOrganizationalUnit $atrDepartmentName -path $atrBaseDN"
+   # writeToLog("cmmmmm: $cmd")
+   #$res = Invoke-Command -Session $session -scriptblock {$cmd} 
+ # writeToLog("res: $res")
+
+  #  Remove-PSSession -ID $session.ID
+    writeToLog("Rule End")
+
+    </Source>
+</Rule>

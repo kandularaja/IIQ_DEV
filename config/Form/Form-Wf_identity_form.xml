@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1713950442430" id="c0a81db48edf16fe818f0f6843bc287f" name="WF_Identity_Form" type="Workflow">
+  <Attributes>
+    <Map>
+      <entry key="pageTitle" value="WF_Identity_Form"/>
+    </Map>
+  </Attributes>
+  <Description></Description>
+  <Section name="Section 1">
+    <Field name="Field 1" type="sailpoint.object.Identity"/>
+  </Section>
+</Form>

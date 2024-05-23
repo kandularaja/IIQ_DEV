@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1713952308208" explicitTransitions="true" id="c0a81db48f0f163a818f0f84bbef003e" modified="1714458256896" name="TestworkflowSr" type="Workflow">
+  <Variable input="true" name="Manager"/>
+  <Variable input="true" name="lastName"/>
+  <Variable input="true" name="firstName"/>
+  <Variable name="launcher"/>
+  <Step icon="Start" name="Start" posX="20" posY="20">
+    <Approval name="Testformhiddenfield" owner="ref:launcher" return="identityName">
+      <Form name="Rajasekhar" type="Workflow">
+        <Attributes>
+          <Map>
+            <entry key="pageTitle" value="Name"/>
+          </Map>
+        </Attributes>
+        <Section name="Section 1">
+          <Field displayName="Users" name="identityName" postBack="true" required="true" type="Identity"/>
+        </Section>
+        <Section name="step1">
+          <Field displayName="Email" dynamic="true" name="identityEmail" required="true" type="String">
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = identityName;
+                
+                if(id != null){                
+                Identity myIdentity1=context.getObjectById(Identity.class,id);  
+                return myIdentity1.getEmail();
+                }
+              </Source>
+            </Script>
+          </Field>
+          <Field displayName="First Name" dynamic="true" name="fn" type="String">
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = identityName;                
+                if(id != null){                
+                Identity myIdentity1=context.getObjectById(Identity.class,id);  
+                return myIdentity1.getFirstname();
+                }
+              </Source>
+            </Script>
+          </Field>
+          <Field displayName="Last Name" dynamic="true" name="ln" type="String">
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = identityName;                
+                if(id != null){                
+                Identity myIdentity1=context.getObjectById(Identity.class,id);  
+                return myIdentity1.getLastname();
+                }
+              </Source>
+            </Script>
+          </Field>
+        </Section>
+      </Form>
+    </Approval>
+    <Transition to="Stop"/>
+  </Step>
+  <Step icon="Stop" name="Stop" posX="255" posY="15"/>
+</Workflow>

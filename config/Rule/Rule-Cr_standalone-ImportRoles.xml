@@ -1,0 +1,328 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1704692103997" id="c0a800918ce71528818ce7913b3d0074" language="" name="CR_Standalone - Import Roles" type="Correlation">
+  <Description>
+
+    Import template-defined Roles from a CSV file.
+
+  </Description>
+  <Signature returnType="Map">
+    <Inputs>
+      <Argument name="log">
+        <Description>
+
+          The log object associated with the SailPointContext.
+
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+
+// Sample Tool to import Roles.
+
+import java.io.File;
+
+import java.util.List;
+
+import java.util.HashMap;
+
+import sailpoint.object.Application;
+
+import sailpoint.object.Bundle;
+
+import sailpoint.object.Identity;
+
+import sailpoint.object.IdentitySelector;
+
+import sailpoint.object.IdentitySelector.MatchExpression;
+
+import sailpoint.object.IdentitySelector.MatchTerm;
+
+import sailpoint.object.Link;
+
+import sailpoint.object.Profile;
+
+import sailpoint.object.Filter;
+
+import sailpoint.object.QueryOptions;
+
+import sailpoint.object.Schema;
+
+import sailpoint.tools.RFC4180LineIterator;
+
+import sailpoint.tools.RFC4180LineParser;
+
+
+
+// Routine that takes a key/value hash of role data and builds it into roles
+
+// in IdentityIQ. 
+
+public void buildRole (HashMap roleHash) {
+
+
+
+   String roleName  = (String) roleHash.get("Role Name");
+
+   String roleType  = (String) roleHash.get("Role Type");
+
+   String subRoles  = (String) roleHash.get("Sub Roles/IT Roles");
+   System.out.println("Role: '" + roleName + "' type: [" + roleType + "]" + "Sub ROles: " + subRoles);
+
+  
+
+   Bundle role = context.getObject(Bundle.class, roleName);
+
+   if (null == role) {
+
+      System.out.println(" - role does not exist, creating new: " + roleName);
+
+      role = new sailpoint.object.Bundle();
+
+   }  
+
+
+
+   role.setName(roleName);
+
+   role.setDescription("Testing...");
+
+  
+
+   if (roleType.toLowerCase().startsWith("it")) {
+
+      role.setType("it");     
+
+   } else {
+
+      role.setType("business");
+
+   }
+
+  
+
+  Identity ownerId = context.getObject(Identity.class, "spadmin");
+
+   role.setOwner(ownerId);
+
+
+
+
+
+      System.out.println(" Debug --- Mandatory values set for : " + roleName);
+
+    
+
+
+
+   // Convert the sub-roles list into a java.util.List object.
+
+   RFC4180LineParser subRolePaser = new RFC4180LineParser("|");
+
+   List subRolesList = subRolePaser.parseLine(subRoles);
+
+
+
+      System.out.println(" Debug ---- Reading sub roles : ");
+
+
+
+
+
+  
+
+   // Handle Business-role specific build out options here.
+
+   if (role.getType().contains("business")) {
+
+  
+
+      // Clear the previous list of requirements for this Role.
+
+      if (null != role.getRequirements()) {
+
+         role.getRequirements().clear();
+
+      }
+
+         
+
+      // Add the required IT roles for this business role.
+
+   
+
+    
+
+     for (String subRoleName : subRolesList) {
+
+     
+
+         Bundle requiredRole = context.getObjectByName(Bundle.class, subRoleName);
+
+         if (null == requiredRole) {
+
+            System.out.println(" - ERROR: Required role not found: " + subRoleName);
+
+         } else {
+
+            role.addRequirement(requiredRole);
+
+         }              
+
+        
+
+      }   
+
+    
+
+}
+
+  
+
+
+   System.out.println("role: " + role.toXml());
+
+  
+
+   context.saveObject(role);
+
+   context.commitTransaction();
+
+
+
+   return;
+
+}
+
+
+
+// What delimiter do we want to use in the CSV file.
+
+String dlm = ",";
+
+String csvFileName = "/home/spadmin/ImplementerTraining/config/POC/Bulk-Roles-Mapping.csv";
+
+
+
+File testFile = new File(csvFileName);
+
+if ((!testFile.exists()) || (testFile.isDirectory())) {
+
+   System.out.println("Unable to find file: " + csvFileName);
+
+   return;
+
+}
+
+
+
+System.out.println("Importing Roles from: '" + csvFileName + "' ...");
+
+
+
+// Open the CSV file for reading.
+
+BufferedReader fileIn = new BufferedReader(new FileReader(csvFileName));
+
+
+
+RFC4180LineParser parser = new RFC4180LineParser(dlm);
+
+
+
+int lineCounter = 0;
+
+ArrayList headerStrings = new ArrayList();
+
+String thisLine = null;
+
+
+
+while (null != (thisLine = fileIn.readLine())) {
+
+  
+
+   List tokens = parser.parseLine(thisLine);
+
+   // System.out.println(" tokens: " + tokens);
+
+
+
+   if (lineCounter == 0) {
+
+      // Header Line.
+
+      // Assign indexes to each position.
+
+      for (int i=0; i &lt; tokens.size(); i++) {
+
+         headerStrings.add(tokens.get(i).trim());
+
+      }     
+
+   } else {
+
+      // Data Line.  Read the data elements out.
+
+      HashMap lineHash = new HashMap();
+
+     
+
+      for (int i=0; i &lt; tokens.size(); i++) {
+
+         String headerString = headerStrings.get(i);
+
+         String valueString = tokens.get(i);
+
+         if (null != valueString) { valueString = valueString.trim(); }
+
+         System.out.println ("header " + headerString + " == " + valueString);
+
+         lineHash.put(headerString, valueString);
+
+      }   
+
+     
+
+      buildRole (lineHash);
+
+     
+
+   }
+
+
+
+   lineCounter++;
+
+  
+
+   // Don't let objects accrue in memory, flush them out every so often.
+
+   if ((lineCounter % 20) == 0) { context.decache(); }
+
+  
+
+}
+
+
+
+fileIn.close();
+
+
+
+System.out.println("Role import Complete.");
+
+
+
+return;
+
+</Source>
+</Rule>

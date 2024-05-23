@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Configuration PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Configuration created="1685966727175" id="c0a81db3887a1d1b81888b72a8070588" modified="1715683296027" name="MFAConfiguration">
+  <Attributes>
+    <Map>
+      <entry key="MFAConfigs"/>
+    </Map>
+  </Attributes>
+</Configuration>

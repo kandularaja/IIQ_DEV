@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE CorrelationConfig PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<CorrelationConfig created="1683791997061" id="c0a81db387fb113b818809d2e8850ebd" name="delcorel">
+  <AttributeAssignments>
+    <Filter operation="EQ" property="email" value="EmailAddress"/>
+  </AttributeAssignments>
+</CorrelationConfig>

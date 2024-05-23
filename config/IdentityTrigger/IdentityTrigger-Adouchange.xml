@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger attributeName="firstname" created="1683091416811" disabled="true" handler="sailpoint.api.WorkflowTriggerHandler" id="c0a81db387db1b358187e010e6eb0290" modified="1705484975641" name="ADOUChange" newValueFilter="" oldValueFilter="" type="AttributeChange">
+  <Owner>
+    <Reference class="sailpoint.object.Identity" id="c0a81db3874f140081874fc432ae00ec" name="spadmin"/>
+  </Owner>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="businessProcess"/>
+        <entry key="workflow" value="RapidSetup - Mover"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+</IdentityTrigger>

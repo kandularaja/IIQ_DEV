@@ -1,0 +1,299 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1716192488740" explicitTransitions="true" handler="sailpoint.api.StandardWorkflowHandler" id="c0a800918f941295818f950b2d240083" libraries="Identity" name="NYU Workflow - Standard Offboarding" type="Workflow">
+  <Variable input="true" name="identityName">
+    <Description>The name of the identity being updated.</Description>
+  </Variable>
+  <Variable initializer="false" name="trace">
+    <Description>
+      Used for debugging this workflow and when set to true trace
+      will be sent to stdout.
+    </Description>
+  </Variable>
+  <Variable initializer="false" input="true" name="googleAccess">
+    <Description>
+      if true the Google Apps excluded from Disable Plan
+       and Its password will be scambled.
+    </Description>
+  </Variable>
+  <Variable initializer="false" name="hasGoogleAccount">
+    <Description>
+      if true the Google Apps excluded from Disable Plan
+       and Its password will be scambled.
+    </Description>
+  </Variable>
+  <Variable initializer="false" input="true" name="clearExceptionRoles">
+    <Description>
+      if true the system will clear all of the Exception Roles a user has when disabling, and skips the Exception Role Check step below. 
+    </Description>
+  </Variable>
+  <Variable initializer="false" input="true" name="skipAppExceptionRoles">
+    <Description>
+      if true and clearExceptionRoles=true, the system will skip clearing the individual application exception 
+      role and skip disabling an application if the user has an exception role for it. Other Exception Roles will be disabled. May need more work 
+    </Description>
+  </Variable>
+  <Variable initializer="false" input="true" name="onlyCheckAppExceptions">
+    <Description>
+      If true the system will only check the Application Roles when looking to skip disable completely. This Overrides the 
+      'clearExceptionRoles' causing the 'Skip Offboarding If User Has Exception Role' step to be called with this parameter.
+      
+    </Description>
+  </Variable>
+  <Variable initializer="false" name="isFormerUser">
+    <Description>
+      true if the user is Former 
+    </Description>
+  </Variable>
+  <Variable initializer="false" name="isOnLOA">
+    <Description>
+      true if the user is On LOA
+    </Description>
+  </Variable>
+  <Variable initializer="false" input="true" name="skipProvisioning">
+    <Description>
+      true if the system should do the provisioning or just log it. 
+    </Description>
+  </Variable>
+  <Variable input="true" name="event" transient="true">
+    <Description>
+      The IdentityChangeEvent.  It can be used to build
+      the provisioning plan, but does not need to be
+      persisted with the case, so marked as transient.
+    </Description>
+  </Variable>
+  <Variable name="plan"/>
+  <Variable name="disabledApps"/>
+  <Variable name="scrambleApps"/>
+  <Variable name="removedExceptionRoles"/>
+  <Variable name="netId"/>
+  <Variable name="adAdminNetID"/>
+  <Variable name="errorMsg"/>
+  <Variable name="successMsg"/>
+  <Variable name="entsToRemove"/>
+  <Variable name="adminLDAPents"/>
+  <Variable name="inputMap" type="java.util.Map"/>
+  <Variable initializer="StandardOffBoarding" name="auditSource"/>
+  <Variable initializer="StandardOffBoarding Success Event" name="successAuditAction"/>
+  <Variable initializer="StandardOffBoarding Failure Event" name="failureAuditAction"/>
+  <Variable initializer="The User is not Former" name="auditTextNotFormer"/>
+  <Variable initializer="The User Has Exception Role" name="auditTextHasexception"/>
+  <Variable initializer="The User Has Security Hold" name="auditTextHasSecurityHold"/>
+  <Variable initializer="The User is on LOA" name="auditTextOnLOA"/>
+  <Variable input="true" name="launcher"/>
+  <Description>
+    This workflow provides the steps necessary to offboard someone by the Standard Offboarding process. This does not set any security holds. 
+    This first checks to see if the user is Former, and exits if so. Then it checks the passed in variable for whether it should remove exception roles,
+    or skip offboard if they are present. It then builds a disable plan for the users account and executes it. It then checks for an admin account, 
+    and if one is found, it builds and executes a disable plan for that as well. It then audits the results and calls refresh.   
+  </Description>
+  <Step icon="Start" name="Start" posX="50" posY="50">
+    <Transition to="Validating No Security Hold"/>
+  </Step>
+  <Step action="script:isSecurityHoldUser(context,identityName)" icon="Task" name="Validating No Security Hold" posX="420" posY="50" resultVariable="hasSecHold">
+    <Description>Checking if the User Has security hold set</Description>
+    <Transition to="Skip Offboarding Audit Event - Security Hold" when="hasSecHold == true"/>
+    <Transition to="Validating the Identity"/>
+  </Step>
+  <Step action="script:isFormerIdentity(context,identityName)" icon="Task" name="Validating the Identity" posX="300" posY="50" resultVariable="isFormerUser">
+    <Description>Validating the User (i.e,weather the user is Former or not</Description>
+    <Transition to="Validating LOA Status" when="script:(errorMsg == null &amp;&amp; isFormerUser == true )"/>
+    <Transition to="Skip Offboarding Audit Event - Former" when="script:(errorMsg == null &amp;&amp; isFormerUser == false )"/>
+    <Transition to="Failure Audit Event" when="script:errorMsg != null"/>
+    <Transition to="Unknown Non-Failure Offboarding Audit Event"/>
+  </Step>
+  <Step action="script:isIdentityOnLOA(context,identityName)" icon="Task" name="Validating LOA Status" posX="300" posY="50" resultVariable="isOnLOA">
+    <Description>Validating the User (i.e,weather the user is Former or not</Description>
+    <Transition to="Prepare Input Map" when="script:(errorMsg == null  &amp;&amp; isOnLOA == false &amp;&amp; (clearExceptionRoles == true &amp;&amp; !(onlyCheckAppExceptions == true) ) )"/>
+    <Transition to="Skip Offboarding If User Has Exception Role" when="script:(errorMsg == null &amp;&amp; isOnLOA == false )"/>
+    <Transition to="Skip Offboarding Audit Event - On LOA" when="script:(errorMsg == null &amp;&amp; isOnLOA == true )"/>
+    <Transition to="Failure Audit Event" when="script:errorMsg != null"/>
+    <Transition to="Unknown Non-Failure Offboarding Audit Event"/>
+  </Step>
+  <Step action="script:isUserHasAnExceptionRoles(context,identityName,onlyCheckAppExceptions)" icon="Task" name="Skip Offboarding If User Has Exception Role" posX="420" posY="50" resultVariable="hasExceptionRole">
+    <Description>Checking if the User Has any Exception Role Assigned or Detected</Description>
+    <Transition to="Skip Offboarding Audit Event - Exception" when="errorMsg == null &amp;&amp; hasExceptionRole == true"/>
+    <Transition to="Refresh User" when="errorMsg == null"/>
+    <Transition to="Failure Audit Event"/>
+  </Step>
+  <Step action="call:refreshIdentity" icon="Task" name="Refresh User" posX="480" posY="188">
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="promoteManagedAttributes" value="string:true"/>
+    <Arg name="provision" value="string:true"/>
+    <Arg name="promoteAttributes" value="string:true"/>
+    <Arg name="correlateEntitlements" value="string:true"/>
+    <Arg name="refreshIdentityEntitlements" value="string:true"/>
+    <Description>Refresh the user so they have the latest roles when evaluating the inputs. </Description>
+    <Transition to="Prepare Input Map"/>
+  </Step>
+  <Step action="script:preparingInputMap(context,identityName,googleAccess,clearExceptionRoles,skipAppExceptionRoles, false )" icon="Task" name="Prepare Input Map" posX="540" posY="138" resultVariable="inputMap">
+    <Description>Preparing the Input map to build the disable provision plan</Description>
+    <Transition to="Password For User" when="inputMap.isEmpty() == false"/>
+    <Transition to="Success Audit Event" when="inputMap.isEmpty() == true"/>
+    <Transition to="Failure Audit Event"/>
+  </Step>
+  <Step icon="Default" name="Password For User" posX="675" posY="280" resultVariable="generatedPassword">
+    <Description>Generating the password to Scramble the AD and LDAP password</Description>
+    <Script>
+      <Source>
+        import sailpoint.api.PasswordGenerator;
+        import sailpoint.object.PasswordPolicy; 
+
+        String policyName = "Offboarding Password Scramble Random Generator";
+        PasswordPolicy policy = context.getObjectByName(PasswordPolicy.class, policyName);
+        String password = new PasswordGenerator(context).generatePassword(policy);		
+        return password;
+      </Source>
+    </Script>
+    <Transition to="Set Timestamp"/>
+  </Step>
+  <Step icon="Default" name="Set Timestamp" posX="920" posY="310" resultVariable="timeStamp">
+    <Script>
+      <Source>
+        import org.apache.commons.logging.Log;
+        import org.apache.commons.logging.LogFactory;
+        import sailpoint.tools.Util;
+        import sailpoint.object.Identity;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.api.SailPointFactory;
+
+        String timeStamp =  Util.dateToString(new Date(), "yyyyMMdd HH.mm.ss");
+        Identity identity = context.getObjectByName(Identity.class,identityName);
+        workflow.put("identityName",identity.getName());
+        System.out.println("The Security Hold in Set Timestamp: "+identity.getAttribute("securityHold"));
+        context.decache(identity);
+        
+        return timeStamp;
+      </Source>
+    </Script>
+    <Transition to="Call Password Intercept Workflow"/>
+  </Step>
+  <Step icon="Default" name="Call Password Intercept Workflow" posX="920" posY="350">
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="nativeIdentity" value="ref:identityName"/>
+    <Arg name="sourceApplication" value="IIQ"/>
+    <Arg name="timestamp" value="ref:timeStamp"/>
+    <Arg name="syncAll" value="false"/>
+    <Arg name="targetApplications" value="ref:scrambleApps"/>
+    <Arg name="applicationName" value="IIQ"/>
+    <Arg name="scramblePassword" value="true"/>
+    <Arg name="password" value="ref:generatedPassword"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" id="c0a81db3874f140081874fc43ac80180" name="Password Intercept"/>
+    </WorkflowRef>
+    <Transition to="Build Disable Plan"/>
+  </Step>
+  <Step action="script:buildStandardOffboardingDisablePlan(context,identityName,inputMap,clearExceptionRoles,skipProvisioning,skipAppExceptionRoles)" icon="Task" name="Build Disable Plan" posX="545" posY="280" resultVariable="successMsg">
+    <Description>Building and Executing the Disable Provision Plan,if Provision status committed transition to Attribute SYnch,else Creating the Failure Audit event.</Description>
+    <Transition to="Scramble and Suspend Google Account" when="(errorMsg == null) &amp;&amp; (hasGoogleAccount == true)"/>
+    <Transition to="Success Audit Event" when="errorMsg == null"/>
+    <Transition to="Failure Audit Event"/>
+  </Step>
+  <Step action="script:scrambleAndSuspendGoogleAccount(identityName,generatedPassword,skipProvisioning)" icon="Default" name="Scramble and Suspend Google Account" posX="950" posY="350">
+    <Transition to="Success Audit Event" when="(errorMsg == null)"/>
+    <Transition to="Failure Audit Event"/>
+  </Step>
+  <Step action="script:isUserHasADAdminAccount(context,identityName)" icon="Task" name="Check to See User Has AD Admin Account" posX="720" posY="45" resultVariable="hasADAdminAccount">
+    <Description>Check to See user has an AD Admin Account.</Description>
+    <Transition to="Build and Execute Admin Plan" when="(errorMsg == null) &amp;&amp; hasADAdminAccount == true"/>
+    <Transition to="Identity Refresh" when="(errorMsg == null) &amp;&amp; hasADAdminAccount == false"/>
+    <Transition to="Failure Audit Event"/>
+  </Step>
+  <Step action="script:createDisablePlanForADAdminAccount(context,adAdminNetID,skipProvisioning)" icon="Task" name="Build and Execute Admin Plan" posX="820" posY="289" resultVariable=" Msg">
+    <Description>Building and Executing the Disable Provision Plan for AD Admin Accouunt,
+	     if Provision status committed transition to Success Audit Event and Skipping the AttributeSynch for now,else Creating the Failure Audit event.
+	</Description>
+    <Transition to="Identity Refresh" when="(errorMsg == null)"/>
+    <Transition to="Failure Audit Event Admin"/>
+  </Step>
+  <Step action="script:createOffboardingSuccessAE(successAuditAction,launcher,netId,disabledApps,successMsg,entsToRemove,removedExceptionRoles,skipProvisioning)" icon="Default" name="Success Audit Event" posX="970" posY="380">
+    <Transition to="Check to See User Has AD Admin Account"/>
+  </Step>
+  <Step action="script:createOffboardingSuccessAE(successAuditAction,launcher,adAdminNetID,disabledApps,successMsg,entsToRemove,removedExceptionRoles,skipProvisioning)" icon="Default" name="Success Audit Event Admin" posX="970" posY="380">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingSkipAE(identityName, auditTextHasexception, skipProvisioning)" icon="Default" name="Skip Offboarding Audit Event - Exception" posX="990" posY="400">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingSkipAE(identityName, auditTextHasSecurityHold, skipProvisioning)" icon="Default" name="Skip Offboarding Audit Event - Security Hold" posX="990" posY="400">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingSkipAE(identityName, auditTextNotFormer, skipProvisioning)" icon="Default" name="Skip Offboarding Audit Event - Former" posX="990" posY="400">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingSkipAE(identityName, auditTextOnLOA, skipProvisioning)" icon="Default" name="Skip Offboarding Audit Event - On LOA" posX="990" posY="400">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingUnknownNonFailAE(identityName, skipProvisioning)" icon="Default" name="Unknown Non-Failure Offboarding Audit Event" posX="990" posY="400">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingFailureAE(failureAuditAction,launcher,netId,errorMsg, skipProvisioning)" icon="Default" name="Failure Audit Event" posX="995" posY="410">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="script:createOffboardingFailureAE(failureAuditAction,launcher,adAdminNetID,errorMsg, skipProvisioning)" icon="Default" name="Failure Audit Event Admin" posX="995" posY="410">
+    <Transition to="Identity Refresh"/>
+  </Step>
+  <Step action="call:refreshIdentity" icon="Task" name="Identity Refresh" posX="997" posY="420">
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="promoteManagedAttributes" value="string:true"/>
+    <Arg name="provision" value="string:true"/>
+    <Arg name="promoteAttributes" value="string:true"/>
+    <Arg name="correlateEntitlements" value="string:true"/>
+    <Arg name="refreshIdentityEntitlements" value="string:true"/>
+    <Transition to="end"/>
+  </Step>
+  <Step catches="complete" name="Success Message">
+    <Script>
+      <Source>
+        import java.util.ArrayList;
+        import java.util.Iterator;
+        import sailpoint.object.Workflow;
+        import sailpoint.object.WorkflowLaunch;
+        import sailpoint.api.Workflower;
+        import java.util.HashMap;
+        import java.util.Map;
+        import sailpoint.object.Identity;
+        import sailpoint.tools.Message;
+
+        StringBuilder builder = new StringBuilder();
+        Identity id = context.getObjectByName(Identity.class, identityName);
+        log.debug("wfcase** "+wfcase);
+        String idName = identityName;
+        if ( null != id ) idName = id.getDisplayName();
+
+        ArrayList messages = wfcase.getMessages();
+        log.debug("messages** "+messages);
+
+        if (messages != null) {
+          Iterator iter = messages.iterator();  
+          while (iter.hasNext()) {
+            Message next = (Message) iter.next();
+            builder.append("ERROR: " + next.toString() + "; ");
+          }
+          
+          Identity m = context.getObject(Identity.class,launcher);
+          if ( null != m )
+          {
+            Message msg = Message.error(builder.toString(), new Object[0]);
+            idwupeNotify(m, msg, false);
+          }
+        } else {
+
+          Identity m = context.getObject(Identity.class,launcher);
+          if ( null != m )
+          {  
+            Message msg = null;
+            if (successMsg != null &amp;&amp; successMsg.contains("Skipping")){
+              msg = Message.info("Skipped StandardOffboarding " + idName, new Object[0]);
+            } else{
+              msg = Message.info("Successfully Offboarded " + idName, new Object[0]);
+            }
+            idwupeNotify(m, msg, false);
+          }
+        }
+      </Source>
+    </Script>
+    <Transition to="end"/>
+  </Step>
+  <Step icon="Stop" name="end" posX="1000" posY="500"/>
+</Workflow>

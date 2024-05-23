@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE ObjectConfig PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<ObjectConfig created="1680670471113" id="c0a81db3874f140081874fc433c900f1" modified="1705474763612" name="Application">
+  <ObjectAttribute categoryName="Native Change Detection" defaultValue="" displayName="Native Change Detection Options" editMode="Permanent" name="nativeChangeProcess" namedColumn="true" required="true">
+    <AllowedValues>
+      <String>Do Nothing</String>
+      <String>Automated Recovery and Revocation</String>
+      <String>Manager Certification Revocation</String>
+      <String>Manager Certification Revocation and Automated Recovery</String>
+    </AllowedValues>
+    <Description>Native Change Detection Options</Description>
+  </ObjectAttribute>
+</ObjectConfig>

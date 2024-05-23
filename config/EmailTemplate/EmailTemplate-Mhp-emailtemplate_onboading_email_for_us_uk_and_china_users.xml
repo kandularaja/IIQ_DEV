@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE EmailTemplate PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<EmailTemplate created="1712809250828" id="c0a800918ecb14a6818ecb63100c003a" modified="1712815696489" name="MHP-EmailTemplate_Onboading_Email_for_US_UK_and_China_users">
+  <Body>
+
+    &lt;html>
+
+    &lt;body>
+
+    &lt;p> Hello, &lt;/p>
+
+    &lt;p> The User $firstname $lastname has been created. &lt;/p>
+
+    &lt;p> Username: $firstname.$lastname@mhp.com &lt;br/> PASSWORD: PASSWORD  &lt;/p>
+  
+
+    &lt;p> The user will be able to log in 4 days prior to his start date. &lt;/p>
+
+    &lt;p> King regards &lt;/p>
+
+    &lt;/body>
+
+    &lt;/html>
+
+  </Body>
+  <Description>
+    MHP Email Template
+  </Description>
+  <Signature>
+    <Inputs>
+      <Argument name="firstname" type="string">
+        <Description>firstname</Description>
+      </Argument>
+      <Argument name="lastname" type="string">
+        <Description>lastname</Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Subject>Onboading Email for US, UK and China users</Subject>
+</EmailTemplate>

@@ -1,0 +1,173 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1703046901311" id="c0a800918c7b1d9e818c85816e3f050d" modified="1712119650515" name="Test Group Aggregation Details Form" type="Workflow">
+  <Attributes>
+    <Map>
+      <entry key="pageTitle" value="Test Group Aggregation Details Form"/>
+    </Map>
+  </Attributes>
+  <Description></Description>
+  <Section name="Search Filter">
+    <Field displayName="Application" helpKey="Select the application" name="application" postBack="true" type="application">
+      <Attributes>
+        <Map>
+          <entry key="valueProperty" value="id"/>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field dependencies="application" displayName="Attribute" dynamic="true" helpKey="Select the attribute" name="attribute" postBack="true">
+      <AllowedValuesDefinition>
+        <Script>
+          <Source>
+        							import sailpoint.object.Application;
+            					import sailpoint.object.AttributeDefinition;
+            
+       								if(application != null)
+            					{
+                  	    List attribDefs = context.getObjectById(Application.class,application).getGroupAttributes();
+            						List attribsList = new ArrayList();
+                        for(AttributeDefinition attribDef : attribDefs)
+            						{
+            												attribsList.add(attribDef.getName());
+            						}
+            						return attribsList;
+            					}
+       								
+       								return null;
+        </Source>
+        </Script>
+      </AllowedValuesDefinition>
+    </Field>
+    <Field dependencies="application,attribute" displayName="is Already Existing in IDM ?" displayType="checkbox" dynamic="true" name="existinginIDM" postBack="true" type="boolean" value="true">
+      <Attributes>
+        <Map>
+          <entry key="hidden">
+            <value>
+              <Script>
+                <Source>
+       													
+                  
+                  								if(application == null || attribute == null)
+                  								return true;
+                  								return false;
+         
+       </Source>
+              </Script>
+            </value>
+          </entry>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field dependencies="existinginIDM" displayName="Select New Groups" dynamic="true" multi="true" name="newGroups">
+      <Attributes>
+        <Map>
+          <entry key="hidden">
+            <value>
+              <Script>
+                <Source>
+       													
+                  
+                  								if(application == null || attribute == null)
+                  								return true;
+                  								return existinginIDM;
+         
+       </Source>
+              </Script>
+            </value>
+          </entry>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field dependencies="attribute,application" displayName="Select Entitlement" dynamic="true" multi="true" name="Entitlements">
+      <AllowedValuesDefinition>
+        <Script>
+          <Source>
+        						           import sailpoint.object.ManagedAttribute;
+        											 import sailpoint.object.Filter;
+            									 import sailpoint.object.QueryOptions;
+            									 import java.util.Iterator;
+            									 import java.util.List;
+            									 import java.util.ArrayList;
+            
+            									List mgdAttribsList = null;
+        											 if(attribute != null &amp;&amp; application != null)
+        												{
+        
+        																		Filter filter = Filter.and(Filter.eq("application.id",application),Filter.eq("attribute",attribute));
+        																		QueryOptions opts = new QueryOptions();
+        																		opts.add(filter);
+                                            log.error("Oooopts:"+opts);
+        																		Iterator mgdAttribsIt = context.search(ManagedAttribute.class,opts,"value");
+        																		while(mgdAttribsIt != null &amp;&amp; mgdAttribsIt.hasNext())
+                                            {
+
+                                            if(mgdAttribsList == null)
+                                            mgdAttribsList = new ArrayList();
+                                            mgdAttribsList.add(mgdAttribsIt.next()[0]);
+                                            }
+            																
+        	
+        												}
+        												return mgdAttribsList;
+        </Source>
+        </Script>
+      </AllowedValuesDefinition>
+      <ValidationScript>
+        <Source>
+        								import java.util.List;
+          							import java.util.ArrayList;
+          							
+          							List  groups = new ArrayList();
+                        if(value != null)
+                        {
+                              if(value instanceof String)
+                              groups.add(value);
+                              if(value instanceof List)
+                              groups = (List)value;
+                        }
+          							if(newGroups !=  null)
+          							{
+          												if(newGroups instanceof String)
+          											  groups.add(newGroups);
+          												if(newGroups instanceof List)
+          												groups.addAll((List)newGroups);
+          							}
+												if(groups.isEmpty())
+          							return "Your request can not be submitted , there are no Groups to Aggregate";
+          							field.setValue(groups);
+        								return null;
+        </Source>
+      </ValidationScript>
+    </Field>
+    <Field displayName="Select Group Refresh Rule" dynamic="true" multi="true" name="groupRefreshRule">
+      <AllowedValuesDefinition>
+        <Script>
+          <Source>
+    													import sailpoint.object.Rule;
+      												import java.util.List;
+      												import sailpoint.object.Filter;
+      												import sailpoint.object.QueryOptions;
+      												import java.util.Iterator;
+            
+            									List rulesList;
+      												Filter filter = Filter.eq("type","GroupAggregationRefresh");
+      												QueryOptions opts = new QueryOptions();
+      												opts.add(filter);
+      												Iterator rulesIt = context.search(Rule.class,opts,"name");
+            									while(rulesIt != null &amp;&amp; rulesIt.hasNext())
+            									{
+																									if(rulesList == null)
+            																			rulesList=new ArrayList();
+            																			rulesList.add(rulesIt.next()[0]);
+            								
+            									}
+            								
+      												return rulesList;
+    </Source>
+        </Script>
+      </AllowedValuesDefinition>
+    </Field>
+  </Section>
+  <Button action="next" label="Submit"/>
+  <Button action="cancel" label="Exit"/>
+</Form>

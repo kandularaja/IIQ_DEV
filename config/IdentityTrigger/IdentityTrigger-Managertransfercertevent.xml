@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger created="1682494380475" handler="sailpoint.api.CertificationTriggerHandler" id="c0a81db387a310888187bc7ad9bb073c" modified="1715837587523" name="ManagerTransferCertEvent" type="ManagerTransfer">
+  <Description>Manager Transfer Cert Event</Description>
+  <Owner>
+    <Reference class="sailpoint.object.Identity" id="c0a81db3874f140081874fc432ae00ec" name="spadmin"/>
+  </Owner>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="businessProcess"/>
+        <entry key="certificationDefinitionId" value="c0a800918d161242818d16d47b580a5a"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+</IdentityTrigger>

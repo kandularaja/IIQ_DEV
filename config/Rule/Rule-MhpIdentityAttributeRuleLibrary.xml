@@ -1,0 +1,997 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1712833527516" id="c0a800918ecb14a6818eccd57edc030f" language="beanshell" modified="1713182683694" name="MHP Identity Attribute Rule Library">
+  <Source>
+               
+       
+  import sailpoint.api.SailPointContext;
+  import sailpoint.api.IdentityService;
+  import sailpoint.object.Application;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Link;
+  import sailpoint.object.Custom;
+  import sailpoint.object.Rule;
+  import sailpoint.object.ResourceObject;
+  import java.text.SimpleDateFormat;
+  import java.text.DateFormat;
+  import sailpoint.tools.CloseableIterator;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+  import java.text.Normalizer;
+  import java.text.Normalizer.Form;
+  import sailpoint.object.EmailOptions;
+  import sailpoint.object.EmailTemplate;
+  import sailpoint.object.EmailFileAttachment;
+  import java.io.File;
+  import java.nio.file.Files;
+
+  import sailpoint.connector.ADLDAPConnector;
+  import sailpoint.connector.Connector;
+  import sailpoint.connector.ConnectorException;
+  import org.apache.commons.lang3.StringUtils;
+ 
+ 
+ 
+  /***********************************************************
+  ***            IdentityAttribute-lastname               ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeLastName(SailPointContext context,Identity identity,Link link) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeLastName***********");
+    String lastname = "";
+    if (link != null){
+ String surNamePrefix = link.getAttribute("Surname Prefix");
+ String lastName = link.getAttribute("LastName");
+ if (Util.isNotNullOrEmpty(surNamePrefix) &amp;&amp; Util.isNotNullOrEmpty(lastName)) {
+   lastname = surNamePrefix + " "+ lastName;
+ } else if (Util.isNullOrEmpty(surNamePrefix) &amp;&amp; Util.isNotNullOrEmpty(lastName)) {
+   lastname = lastName;
+ } else if (Util.isNotNullOrEmpty(surNamePrefix) &amp;&amp; Util.isNullOrEmpty(lastName)) {
+   lastname = surNamePrefix;
+ }
+}
+log.debug("********Returning lastName from getIdentityAttributeLastName***********" +lastname);
+return lastname;
+  }
+ 
+  /***********************************************************
+  ***            IdentityAttribute-displayName             ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeDisplayName(SailPointContext context,Identity identity) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeDisplayName***********");
+    String displayName = "";
+ String firstName = "";
+      if(identity.getAttribute("firstname") != null &amp;&amp; identity.getAttribute("firstname") != void) firstName = identity.getAttribute("firstname");
+ String lastName = "";
+      if(identity.getAttribute("lastname") != null &amp;&amp; identity.getAttribute("lastname") != void) lastName = identity.getAttribute("lastname");
+      if (Util.isNotNullOrEmpty(firstName) &amp;&amp; Util.isNotNullOrEmpty(lastName)) {
+   displayName = firstName + " "+ lastName;    
+ } else if (Util.isNullOrEmpty(firstName) &amp;&amp; Util.isNotNullOrEmpty(lastName)) {
+   displayName = lastName;
+ } else if (Util.isNotNullOrEmpty(firstName) &amp;&amp; Util.isNullOrEmpty(lastName)) {
+   displayName = firstName;
+ }
+
+log.debug("********Returning displayName from getIdentityAttributeDisplayName***********" +displayName);
+ 
+return displayName;
+ 
+  }
+ 
+  /***********************************************************
+  ***            IdentityAttribute-email             ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeEmail(SailPointContext context,Identity identity,Link link) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeEmail***********");
+    String email = "";
+Link primaryADLink = null;
+IdentityService service = new IdentityService(context);
+Application adApp = context.getObjectByName(Application.class,link.getApplicationName());
+if (identity != null &amp;&amp; adApp != null) {
+ List adLinks = service.getLinks(identity,adApp);
+ if (Util.nullSafeSize(adLinks) >0 ) {
+   for (Link link : adLinks) {
+ //Check to see if the Link is Primary Not Admin...
+ if(link != null){
+   String samAccountName = (String)link.getAttribute("sAMAccountName");
+   if(samAccountName != null &amp;&amp; !samAccountName.startsWith("ADM"))
+    {
+    primaryADLink = link;
+break;
+  }
+}
+}
+ } else {
+   log.debug("No AD Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+if (primaryADLink != null &amp;&amp; Util.isNotNullOrEmpty(primaryADLink.getAttribute("mail"))) {
+ email = primaryADLink.getAttribute("mail");
+} else {
+ log.debug("No AD Primary Email found for the Identity : " + identity.getDisplayName());
+}
+log.debug("********Returning Email from getIdentityAttributeEmail***********" +email);
+return email;
+  }
+ 
+  /***********************************************************
+  ***            IdentityAttribute-userName                ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeUserName(SailPointContext context,Identity identity,Link link) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeUserName***********");
+    String userName = "";
+Link primaryADLink = null;
+IdentityService service = new IdentityService(context);
+Application adApp = context.getObjectByName(Application.class,link.getApplicationName());
+if (identity != null &amp;&amp; adApp != null) {
+ List adLinks = service.getLinks(identity,adApp);
+ if (Util.nullSafeSize(adLinks) >0 ) {
+   for (Link link : adLinks) {
+ //Check to see if the Link is Primary Not Admin...
+ if(link != null){
+   String samAccountName = (String)link.getAttribute("sAMAccountName");
+   if(samAccountName != null &amp;&amp; !samAccountName.startsWith("ADM"))
+    {
+    primaryADLink = link;
+break;
+  }
+}
+}
+ } else {
+   log.debug("No AD Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+if (primaryADLink != null &amp;&amp; Util.isNotNullOrEmpty(primaryADLink.getAttribute("sAMAccountName"))) {
+ userName = primaryADLink.getAttribute("sAMAccountName");
+} else {
+ log.debug("No AD Primary userName found for the Identity : " + identity.getDisplayName());
+}
+log.debug("********Returning userName from getIdentityAttributeUserName***********" +userName);
+return userName;
+  }
+
+  /***********************************************************
+  ***            IdentityAttribute-userPrincipalName       ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeUserPrincipalName(SailPointContext context,Identity identity,Link link) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeUserPrincipalName***********");
+    List userPrincipalName = new ArrayList();
+IdentityService service = new IdentityService(context);
+Application adApp = context.getObjectByName(Application.class,link.getApplicationName());
+if (identity != null &amp;&amp; adApp != null) {
+ List adLinks = service.getLinks(identity,adApp);
+ if (Util.nullSafeSize(adLinks) >0 ) {
+   for (Link link : adLinks) {
+ if(link != null &amp;&amp; Util.isNotNullOrEmpty(link.getAttribute("userPrincipalName"))) {
+   userPrincipalName.add(link.getAttribute("userPrincipalName"));
+ }
+}
+ } else {
+   log.debug("No AD Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+log.debug("********Returning userPrincipalName from getIdentityAttributeUserPrincipalName***********" + Util.listToCsv(userPrincipalName));
+return Util.listToCsv(userPrincipalName);
+  }
+ 
+  /***********************************************************
+  ***            IdentityAttribute-personnelSubArea       ***
+  ***********************************************************/
+ 
+  public String getIdentitypersonnelSubArea(SailPointContext context,Identity identity,Link link) {
+    log.debug("********Attribute Rule Library - getIdentitypersonnelSubArea***********");
+    String value="";
+    IdentityService service = new IdentityService(context);
+Application app = context.getObjectByName(Application.class,link.getApplicationName());
+if (identity != null &amp;&amp; app != null) {
+ List links = service.getLinks(identity,app);
+ if (Util.nullSafeSize(links) >=1 ) {
+   Link link=links.get(0);
+ if(link != null &amp;&amp; Util.isNotNullOrEmpty(link.getAttribute("P subArea")) &amp;&amp; Util.isNotNullOrEmpty(link.getAttribute("Personal Area"))) {
+   value=link.getAttribute("Personal Area")+link.getAttribute("P subArea");
+ }  
+}
+  else {
+   log.debug("No SAP-HR Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+Custom cust=context.getObjectByName(Custom.class,"MHP-personnelSubAreaMappings");
+    return cust.getAttributes().get(value);
+       
+  }
+   
+ 
+  /***********************************************************
+  ***            IdentityAttribute-employeeNumber          ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeEmployeeNumber(SailPointContext context,Identity identity) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeEmployeeNumber***********");
+String employeeNumber = identity.getAttribute("employeeNumber");
+log.debug("********Returning employeeNumber from getIdentityAttributeEmployeeNumber***********" +employeeNumber);
+return employeeNumber;
+  }
+ 
+  /***********************************************************
+  ***            IdentityAttribute-employeeNumberExternal  ***
+  ***********************************************************/
+ 
+  public String getIdentityAttributeEmployeeNumberExternal(SailPointContext context,Identity identity) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeEmployeeNumberExternal***********");
+String employeeNumberExternal = identity.getAttribute("employeeNumberExternal");
+log.debug("********Returning employeeNumberExternal from getIdentityAttributeEmployeeNumberExternal***********" +employeeNumberExternal);
+return employeeNumberExternal;
+  }
+  public String getIdentityAttributePsubarea(SailPointContext context,Identity identity,String attr){
+    log.debug("********Attribute Rule Library - getIdentityAttributePsubarea***********");
+  Custom officeMappings = context.getObjectByName(Custom.class,"MHP-OfficeMappings");
+    String pSubarea = (String)identity.getAttribute("personnelSubArea");
+   
+    if(pSubarea != null &amp;&amp; officeMappings.get(pSubarea) != null &amp;&amp; officeMappings.get(pSubarea).get(attr) != null)
+       return officeMappings.get(pSubarea).get(attr);
+    else return null;
+ 
+  }
+  private boolean isYesterdayOrEarlier(Date date) {
+   
+        if(log.isDebugEnabled()) log.debug("Calling isYesterdayOrEarlier");
+        if(log.isDebugEnabled()) log.debug("Checking date: " + date);
+
+        Calendar today = new GregorianCalendar();
+        // reset hour, minutes, seconds and millis
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+        if(log.isDebugEnabled()) log.debug("Today: " + today.getTime());
+
+        if (today.getTimeInMillis() > date.getTime()) {
+            if(log.isDebugEnabled()) log.debug("Date is yesterday or earlier, returning true");
+            return true;
+        }
+        if(log.isDebugEnabled()) log.debug("Date is not yesterday or earlier, returning false");
+        return false;
+    }
+   
+    private boolean isTodayOrEarlier(Date date) {
+   
+        if(log.isDebugEnabled()) log.debug("Calling isTodayOrEarlier");
+        if(log.isDebugEnabled()) log.debug("Checking date: " + date);
+
+        Calendar today = new GregorianCalendar();
+        if(log.isDebugEnabled()) log.debug("Today: " + today.getTime());
+
+        if (today.getTimeInMillis() >= date.getTime()) {
+            if(log.isDebugEnabled()) log.debug("Date is today or earlier, returning true");
+            return true;
+        }
+        if(log.isDebugEnabled()) log.debug("Date is not today or earlier, returning false");
+        return false;
+    }
+   
+    private boolean isDaysAgoOrEarlier(Date date, int days) {
+   
+       if(log.isDebugEnabled()) log.debug("Calling isDaysAgoOrEarlier");
+     
+       // today    
+       Calendar daysAgo = new GregorianCalendar();
+       // reset hour, minutes, seconds and millis
+       daysAgo.set(Calendar.HOUR_OF_DAY, 0);
+       daysAgo.set(Calendar.MINUTE, 0);
+       daysAgo.set(Calendar.SECOND, 0);
+       daysAgo.set(Calendar.MILLISECOND, 0);
+       // subtract number of days
+       daysAgo.add( Calendar.DAY_OF_MONTH, (0 - days) );
+     
+       if(daysAgo.getTimeInMillis() >= date.getTime()){
+         return true;
+       }
+       return false;
+    }
+
+   
+    private boolean isTomorrowOrLater(Date date) {
+   
+        if(log.isDebugEnabled()) log.debug("Calling isTomorrowOrLater");
+        if(log.isDebugEnabled()) log.debug("Checking date: " + date);
+
+        Calendar tomorrow = new GregorianCalendar();
+        // reset hour, minutes, seconds and millis
+        tomorrow.set(Calendar.HOUR_OF_DAY, 0);
+        tomorrow.set(Calendar.MINUTE, 0);
+        tomorrow.set(Calendar.SECOND, 0);
+        tomorrow.set(Calendar.MILLISECOND, 0);
+        // Add 1 day
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+       
+        if(log.isDebugEnabled()) log.debug("Tomorrow: " + tomorrow.getTime());
+
+        if (tomorrow.getTimeInMillis() &lt;= date.getTime()) {
+            if(log.isDebugEnabled()) log.debug("Date is tomorrow or later, returning true");
+            return true;
+        }
+        if(log.isDebugEnabled()) log.debug("Date is not tomorrow or later, returning false");
+        return false;
+    }
+    /***********************************************************************
+     Check for uniqueness of AD naming attribute against a given AD application,
+     verified by using a copy of the connector.
+     Used when generating unique sAMAccountName and displayName
+    ************************************************************************/
+
+    public Boolean isUniqueADName(Application application, String attName, String attValue) {
+
+       if (log.isDebugEnabled()) log.debug("Checking for uniqueness of " + attName + " " + attValue + " for application " + application.getName());
+       Boolean unique = true;
+       
+       // Make a copy of the AD application
+       Application appCopy = (Application) application.deepCopy((sailpoint.object.Resolver) context);
+       String appConnName = appCopy.getConnector();
+       
+       // Get the domain DN and use this as the searchDN so that we search the entire domain
+       List domainSettings = appCopy.getAttributes().getMap().get("domainSettings");
+       Map searchDNMap = domainSettings.get(0);
+       String searchDN = searchDNMap.get("domainDN");
+      // String searchDN = appCopy.getAttributes().getMap().get("domainSettings").get(0).get("domainDN");
+       if (log.isDebugEnabled()) log.debug("Searching in: " + searchDN);
+     
+       List dnList = new ArrayList();
+       Map setupMap = new HashMap();
+       setupMap.put("iterateSearchFilter", "(" + attName  + "=" + attValue + ")");
+       setupMap.put("searchDN", searchDN);
+       
+       dnList.add(0, setupMap); // This takes the map we just changed and adds it back to the list in place of the map that was there.
+       appCopy.setAttribute("searchDNs", dnList); // Add the list back to the app copy.
+     
+       appCopy.setAttribute("referral", "ignore");
+       appCopy.setAttribute("useHasMoreElements", true);
+       appCopy.setCustomizationRule(null);
+     
+       Connector appConnector = sailpoint.connector.ConnectorFactory.getConnector(appCopy, null);
+       CloseableIterator iterator = appConnector.iterateObjects(Connector.TYPE_ACCOUNT, null, null);
+
+       try {
+            if (iterator != null &amp;&amp; iterator.hasNext() ) {
+               if (iterator.hasNext()) {  
+                  ResourceObject user = iterator.next();    
+                  String foundName = user.getAttribute(attName).toString();
+                  if (log.isDebugEnabled()) log.debug("Found an AD account with " + attName + ": " + foundName);        
+                  unique = false;
+               }
+            } else {
+               if (log.isDebugEnabled()) log.debug("Could not find an AD account with " + attName + ": " + attValue);
+            }
+       } finally {
+          if ( iterator != null ) iterator.close();
+       }
+       if (log.isDebugEnabled()) log.debug("Unique: " + unique);
+       return unique;
+    }
+   
+    public String removingWhitespaceAndSpacialcharacters(String str) {
+      if(Util.isNotNullOrEmpty(str)) {
+    String finalWord = Normalizer.normalize(cleanSonderzeichen(str), Form.NFD).replaceAll("\\p{M}", "").replaceAll("\\'", "");
+        //finalWord = cleanSonderzeichen(finalWord);
+    finalWord = Util.deleteWhitespace(finalWord);
+    return finalWord;
+      }
+    return null;
+  }
+  public String retainingIdentityAttributeValue(Identity identity,String attributeName) {
+    if(identity != null &amp;&amp; Util.isNotNullOrEmpty(attributeName)){
+      return identity.getAttribute(attributeName);
+    }
+    return "";
+  }
+  public String getIdentityTypeByLink(Link link,String attributeName) {
+    if(link != null &amp;&amp; Util.isNotNullOrEmpty(attributeName)){
+      return link.getAttribute(attributeName);
+    }
+    return "";
+  }
+  /***********************************************************
+  ***            IdentityAttribute-startDate                ***
+  ***********************************************************/
+ 
+  public Date getIdentityAttributeStartDate(SailPointContext context,Identity identity) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeStartDate***********");
+    String userStartDate = null;
+
+
+IdentityService service = new IdentityService(context);
+Application hrApp = context.getObjectByName(Application.class,"SAP HR");
+if (identity != null &amp;&amp; hrApp != null) {
+ List hrLinks = service.getLinks(identity,hrApp);
+ if (Util.nullSafeSize(hrLinks) >0 ) {
+   for (Link link : hrLinks) {
+  if(link != null){
+   String startDate = (String)link.getAttribute("StartDate");
+            String RejoinDate = (String)link.getAttribute("RejoinDate");
+           
+   if(startDate != null  &amp;&amp; RejoinDate != null)
+    {
+               SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+               Date hrStartDate = (Date)formatter.parse(startDate);
+               Date hrRejoinDate = (Date)formatter.parse(RejoinDate);
+               if(hrStartDate.compareTo(hrRejoinDate) &lt;=0){
+                   userStartDate = RejoinDate;
+                   break;
+               }else{
+                   userStartDate = startDate;
+                   break;
+               }
+             }else if(startDate != null  &amp;&amp; RejoinDate == null ){
+                userStartDate = startDate;
+                break;
+            }else if(startDate == null  &amp;&amp; RejoinDate != null ){
+               userStartDate = RejoinDate;
+               break;
+            }
+}
+}
+ } else {
+   log.debug("No SAP HR Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+
+if(userStartDate != null){
+SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+Date startDate = (Date)formatter.parse(userStartDate);
+return startDate;
+//DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//return dateFormat.format(startDate);
+
+}
+
+Application fgApp = context.getObjectByName(Application.class,"FieldGlass");
+if (identity != null &amp;&amp; fgApp != null) {
+ List fgLinks = service.getLinks(identity,fgApp);
+ if (Util.nullSafeSize(fgLinks) >0 ) {
+   for (Link link : fgLinks) {
+  if(link != null){
+   String startDate = (String)link.getAttribute("Object Start Date");
+   if(startDate != null )
+    {
+    userStartDate = startDate;
+    break;
+  }
+}
+}
+ } else {
+   log.debug("No FieldGlass Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+if(userStartDate != null){
+   SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy");
+Date startDate = (Date)formatter.parse(userStartDate);
+return startDate;
+//DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//return dateFormat.format(startDate);
+
+}
+
+Application sfApp = context.getObjectByName(Application.class,"Success Factors");
+if (identity != null &amp;&amp; sfApp != null) {
+ List sfLinks = service.getLinks(identity,sfApp);
+ if (Util.nullSafeSize(sfLinks) >0 ) {
+   for (Link link : sfLinks) {
+  if(link != null){
+   String startDate = (String)link.getAttribute("Hire Date");
+   if(startDate != null )
+    {
+    userStartDate = startDate;
+    break;
+  }
+}
+}
+ } else {
+   log.debug("No Success Factors Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+if(userStartDate != null){
+   SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+Date startDate = (Date)formatter.parse(userStartDate);
+return startDate;
+//DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//return dateFormat.format(startDate);
+
+}
+
+    if(identity.getAttribute("source") != null &amp;&amp; identity.getAttribute("source").equalsIgnoreCase("IdentityIQ")){
+     return identity.getAttribute("startDate");
+    }
+    return null;
+
+  }
+  /***********************************************************
+  ***            IdentityAttribute-endDate                ***
+  ***********************************************************/
+ 
+  public Date getIdentityAttributeEndDate(SailPointContext context,Identity identity) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeEndDate***********");
+    String userEndDate = null;
+
+
+IdentityService service = new IdentityService(context);
+Application hrApp = context.getObjectByName(Application.class,"SAP HR");
+if (identity != null &amp;&amp; hrApp != null) {
+ List hrLinks = service.getLinks(identity,hrApp);
+ if (Util.nullSafeSize(hrLinks) >0 ) {
+   for (Link link : hrLinks) {
+  if(link != null){
+   String endDate = (String)link.getAttribute("EndDate");
+   if(endDate != null )
+    {
+    userEndDate = endDate;
+    break;
+  }
+}
+}
+ } else {
+   log.debug("No SAP HR Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+
+if(userEndDate != null){
+        if(userEndDate.startsWith("9999")) return null;
+SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+Date endDate = (Date)formatter.parse(userEndDate);
+return endDate;
+//DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//return dateFormat.format(endDate);
+
+}
+
+Application fgApp = context.getObjectByName(Application.class,"FieldGlass");
+if (identity != null &amp;&amp; fgApp != null) {
+ List fgLinks = service.getLinks(identity,fgApp);
+ if (Util.nullSafeSize(fgLinks) >0 ) {
+   for (Link link : fgLinks) {
+  if(link != null){
+   String endDate = (String)link.getAttribute("Object End Date");
+   if(endDate != null )
+    {
+    userEndDate = endDate;
+    break;
+  }
+}
+}
+ } else {
+   log.debug("No FieldGlass Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+if(userEndDate != null){
+        if(userEndDate.endsWith("9999")) return null;
+   SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy");
+Date endDate = (Date)formatter.parse(userEndDate);
+return endDate;
+//DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//return dateFormat.format(endDate);
+
+}
+
+Application sfApp = context.getObjectByName(Application.class,"Success Factors");
+if (identity != null &amp;&amp; sfApp != null) {
+ List sfLinks = service.getLinks(identity,sfApp);
+ if (Util.nullSafeSize(sfLinks) >0 ) {
+   for (Link link : sfLinks) {
+  if(link != null){
+   String endDate = (String)link.getAttribute("End Date");
+   if(endDate != null )
+    {
+    userEndDate = endDate;
+    break;
+  }
+}
+}
+ } else {
+   log.debug("No Success Factors Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+
+if(userEndDate != null){
+        if(userEndDate.startsWith("9999")) return null;
+SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+Date endDate = (Date)formatter.parse(userEndDate);
+return endDate;
+//DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//return dateFormat.format(endDate);
+
+}
+if(identity.getAttribute("source") != null &amp;&amp; identity.getAttribute("source").equalsIgnoreCase("IdentityIQ")){
+  Object currentEndDate = identity.getAttribute("endDate");
+     if (null != currentEndDate &amp;&amp; currentEndDate instanceof String) {
+       SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+    return (Date)formatter.parse(currentEndDate);
+     }
+     return currentEndDate;
+    }
+    return null;
+  }
+ 
+  /*****************************************************************************************
+  *** sAMAccountName Field Value Rule Methods Starts here                                ***
+  *****************************************************************************************/
+  private String incrementNumberIn(String s) {
+    String result = "";
+    String numberStr = "";
+    int i = s.length() - 1;
+    for (; i > 0; i--) {
+      char c = s.charAt(i);
+      if (!Character.isDigit(c))
+        break;
+      numberStr = c + numberStr;
+    }
+
+    int number = Integer.parseInt(numberStr);
+    number++;
+    result += s.substring(0, i + 1);
+    result += number &lt; 10 ? "" : "";
+    result += number;
+    return result;
+  }
+  public String attrValue11(Application application,String attributeName,String attrValue){
+boolean isUniquenew = isUniqueADName(application,attributeName,attrValue);
+if (isUniquenew == false &amp;&amp; attrValue.length() &lt;= 11) {
+attrValue = attrValue + 1;
+for (int i = 1; i &lt; 99; i++) {
+attrValue = incrementNumberIn(attrValue);
+if (isUniqueADName(application,attributeName,attrValue))break;
+}
+}
+return attrValue;
+}
+
+
+
+public String getSAMAccountName(Application application,String attributeName,String attrValue){
+         
+if (application != null &amp;&amp; Util.isNotNullOrEmpty(attributeName) &amp;&amp; Util.isNotNullOrEmpty(attrValue)) {
+
+boolean isUniquenew = isUniqueADName(application,attributeName,attrValue);
+if (isUniquenew == false &amp;&amp; attrValue.length() &lt; 11) {
+attrValue = attrValue + 1;
+for (int i = 1; i &lt; 99; i++) {
+attrValue = incrementNumberIn(attrValue);
+
+if (isUniqueADName(application,attributeName,attrValue))break;
+}
+} else if (isUniquenew == false &amp;&amp; attrValue.length() >= 11) {
+attrValue = attrValue + 1;
+for (int i = 1; i &lt; 9; i++) {
+attrValue = incrementNumberIn(attrValue);
+attrValue.substring(0, 11);
+if (isUniqueADName(application,attributeName,attrValue))break;
+
+}
+}
+while(attrValue.length()>=12 &amp;&amp; isUniquenew == false ) {
+
+attrValue = attrValue.substring(0, 10);
+attrValue= attrValue11(application,attributeName,attrValue);
+if (isUniqueADName(application,attributeName,attrValue))break;
+}
+}
+return attrValue;
+}
+  public String finalStr(String str) {
+    String finalWord = Normalizer.normalize(cleanSonderzeichen(str), Form.NFD).replaceAll("\\p{M}", "").replaceAll("\\'", "");
+    //finalWord = cleanSonderzeichen(finalWord);
+    finalWord = Util.deleteWhitespace(finalWord.toLowerCase());
+    if(finalWord.length()>12 ){
+      return finalWord.substring(0, 12);
+    }else {
+      return finalWord;
+    }
+return finalWord;
+}
+  //sAMAccountName Methods ends here............................
+ 
+  /****************************************************************************************
+  *** userPrincipalName FieldValue Rule Method Ends Here                  *****************
+  ****************************************************************************************/
+  public String validateUniqueUPNMailProxy(Application application, String finalValue,String fullName,String type,Boolean noNetEmailPrefix) {
+    boolean upnUnique = false;
+    boolean mailUnique = false;
+    boolean proxyUnique = false;
+    boolean isUnique = false;
+    upnUnique = isUniqueADName(application,"userPrincipalName",finalValue);
+    mailUnique = isUniqueADName(application,"mail",finalValue);
+    proxyUnique = isUniqueADName(application,"proxyAddresses",finalValue);
+
+    if (upnUnique &amp;&amp; mailUnique &amp;&amp; proxyUnique) return finalValue;
+    fullName = fullName + "1";
+    while(!isUnique) {
+      fullName = incrementNumberIn(fullName);
+     
+      //Call isUniqueADName method and assign that value to isUnique Variable..
+      if (type.equalsIgnoreCase("External") &amp;&amp; !noNetEmailPrefix) {
+        finalValue = "net."+fullName+"@mhp.com";
+      } else {
+        finalValue = fullName+"@mhp.com";
+      }
+      upnUnique = isUniqueADName(application,"userPrincipalName",finalValue);
+      mailUnique = isUniqueADName(application,"mail",finalValue);
+      proxyUnique = isUniqueADName(application,"proxyAddresses",finalValue);
+
+      if (upnUnique &amp;&amp; mailUnique &amp;&amp; proxyUnique) {
+        isUnique = true;
+        break;
+      }
+    }
+    return finalValue;
+  }
+  public String getADUserPrincipalName(Identity identity) {
+    String firstName = identity.getAttribute("firstname");
+    if(Util.isNotNullOrEmpty(firstName)){
+      firstName = Normalizer.normalize(cleanSonderzeichen(firstName), Form.NFD).replaceAll("\\p{M}", "").replaceAll("\\'", "").replaceAll("\\s", "");
+    }
+    String lastName = identity.getAttribute("lastname");
+    if(Util.isNotNullOrEmpty(lastName)){
+      lastName = Normalizer.normalize(cleanSonderzeichen(lastName), Form.NFD).replaceAll("\\p{M}", "").replaceAll("\\'", "").replaceAll("\\s", "");
+    }
+    String type = identity.getAttribute("identityType");
+    Boolean noNetEmailPrefix = false;
+    if(identity.getAttribute("noNetEmailPrefix") != null) noNetEmailPrefix =(Boolean)identity.getAttribute("noNetEmailPrefix");
+    String finalValue = null;
+    if (Util.isNotNullOrEmpty(firstName) &amp;&amp; Util.isNotNullOrEmpty(lastName) &amp;&amp; Util.isNotNullOrEmpty(type)) {
+      String fullName = cleanSonderzeichen(firstName +"."+lastName);
+     
+      fullName = fullName.toLowerCase();
+      if (type.equals("External") &amp;&amp; !noNetEmailPrefix) {
+        finalValue = "net."+fullName+"@mhp.com";
+        finalValue = validateUniqueUPNMailProxy(application,finalValue,fullName,type,noNetEmailPrefix);
+      } else {
+        finalValue = fullName+"@mhp.com";
+       
+        finalValue = validateUniqueUPNMailProxy(application,finalValue,fullName,type,noNetEmailPrefix);
+      }
+     
+    }
+    if(Util.isNotNullOrEmpty(finalValue)) {
+        finalValue.toLowerCase();
+       
+      }
+     
+    return finalValue;
+  }
+ 
+  //userPrincipalName Methods Ends Here................
+
+  private String[] UMLAUTE1 = new String[] {"Ä", "Ö", "Ü", "ä", "ö", "ü", "ß"};
+  private String[] UMLAUTE_REPLACEMENT1 = new String[] {"AE", "OE", "UE", "ae", "oe", "ue", "ss"};
+
+  public String cleanSonderzeichen(String s) {
+    return StringUtils.stripAccents(StringUtils.replaceEach(s, UMLAUTE1, UMLAUTE_REPLACEMENT1));
+  }
+  public String removeNonAlphanumeric(String str)
+    {
+        // replace the given string
+        // with empty string
+        // except the pattern "[^a-zA-Z0-9]"
+        str = str.replaceAll(
+          "[^a-zA-Z0-9]", "");
+ 
+        // return string
+        return str;
+    }
+   
+    /*****************************************************************************************
+  Method Name: targetAccountAggregation
+  Parameters: SailPointContext context, Link adLink
+  Return: void
+  Description: perform targetted aggregation for a single AD account
+  *****************************************************************************************/
+  public void targetAccountAggregation(SailPointContext context, String applicationName, String accountName){
+    log.debug("Enter targetAccountAggregation");
+
+    HashMap argMap = new HashMap();
+    Rule rule = context.getObject(Rule.class, "Rule-Mhp-Single Account Aggregation Rule");
+
+    argMap.put("applicationName", applicationName);
+    argMap.put("accountName", accountName);
+
+    context.runRule(rule,argMap);
+
+    log.debug("Exit targetAccountAggregation");
+  }
+  public void sendEmailToLead(String email,String name,String username){
+ 
+    EmailOptions eo = new EmailOptions();
+    EmailTemplate et = context.getObjectByName(EmailTemplate.class,"Create Account Mail");
+    eo.setTo(email);
+    Map args = new HashMap();
+    args.put("idname",name);
+    args.put("email",username);
+    eo.setVariables(args);
+    context.sendEmailNotification(et,eo);
+ 
+  }
+  public void sendUserEmailToUser(String email,String userName,String displayName){
+ 
+    EmailOptions eo = new EmailOptions();
+    EmailTemplate et = context.getObjectByName(EmailTemplate.class,"UserDetailsEmailTemplate");
+    eo.setTo(email);
+    Map args = new HashMap();
+    args.put("idname",userName);
+    args.put("displayName",displayName);
+    eo.setVariables(args);
+    File file = new File("C:/Email-Attach/Quick Guide_Configure_Multi-Factor-Authentication-komm.pdf");
+    File file1 = new File("C:/Email-Attach/QuickGuide_ActivityReport_V1.1.pdf");
+    byte[] bytes = Files.readAllBytes(file.toPath());
+    byte[] bytes1 = Files.readAllBytes(file1.toPath());
+    EmailFileAttachment attach = new EmailFileAttachment(file.getName(), bytes);
+    EmailFileAttachment attach1 = new EmailFileAttachment(file1.getName(), bytes1);
+    eo.addAttachment(attach);
+    eo.addAttachment(attach1);
+    context.sendEmailNotification(et,eo);
+ 
+  }
+  public void sendPasswordToUser(String name,String email,String password){
+ 
+    EmailOptions eo = new EmailOptions();
+    EmailTemplate et = context.getObjectByName(EmailTemplate.class,"User Password Mail");
+    eo.setTo(email);
+    Map args = new HashMap();
+    args.put("idname",name);
+    args.put("password",password);
+    eo.setVariables(args);
+   
+    context.sendEmailNotification(et,eo);
+ 
+  }
+  public String modifyDisplayName(String displayName){
+    if (Util.isNotNullOrEmpty(displayName) &amp;&amp; Character.isDigit(displayName.charAt(displayName.length()-1))) {
+              int num = Integer.parseInt(displayName.substring(displayName.length()-1));
+             
+              num = num+1;
+             
+              displayName = displayName.substring(0,displayName.length()-1) + String.valueOf(num);
+             
+
+             
+          } else {
+              displayName = displayName + String.valueOf(1);
+          }
+
+    return displayName;
+  }
+  public String getIdentityAttributeFirstName(SailPointContext context,Identity identity) {
+    log.debug("********Attribute Rule Library - getIdentityAttributeFirstName***********");
+   
+    String userFirstName = null;
+
+
+IdentityService service = new IdentityService(context);
+Application hrApp = context.getObjectByName(Application.class,"SAP HR");
+if (identity != null &amp;&amp; hrApp != null) {
+ List hrLinks = service.getLinks(identity,hrApp);
+ if (Util.nullSafeSize(hrLinks) >0 ) {
+   for (Link link : hrLinks) {
+  if(link != null){
+   String firstName = (String)link.getAttribute("FirstName");
+   if(firstName != null )
+    {
+          firstName = firstName.trim();
+          if(firstName != null &amp;&amp; firstName.contains(" ")){
+    userFirstName = firstName.substring(0,firstName.indexOf(" "));
+    break;
+          }else{
+            userFirstName = firstName;
+            break;
+          }
+}
+}
+      }
+ } else {
+   log.debug("No SAP HR Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+
+if(userFirstName != null){
+       
+return userFirstName;
+
+}
+
+Application fgApp = context.getObjectByName(Application.class,"FieldGlass");
+if (identity != null &amp;&amp; fgApp != null) {
+ List fgLinks = service.getLinks(identity,fgApp);
+ if (Util.nullSafeSize(fgLinks) >0 ) {
+   for (Link link : fgLinks) {
+  if(link != null){
+   String firstName = (String)link.getAttribute("First Name");
+   if(firstName != null )
+    {
+          firstName = firstName.trim();
+          if(firstName != null &amp;&amp; firstName.contains(" ")){
+    userFirstName = firstName.substring(0,firstName.indexOf(" "));
+    break;
+          }else{
+            userFirstName = firstName;
+            break;
+          }
+}
+}
+}
+ } else {
+   log.debug("No FieldGlass Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+if(userFirstName != null){
+       
+return userFirstName;
+
+}
+
+Application sfApp = context.getObjectByName(Application.class,"Success Factors");
+if (identity != null &amp;&amp; sfApp != null) {
+ List sfLinks = service.getLinks(identity,sfApp);
+ if (Util.nullSafeSize(sfLinks) >0 ) {
+   for (Link link : sfLinks) {
+  if(link != null){
+   String firstName = (String)link.getAttribute("FirstName");
+   if(firstName != null )
+    {
+          firstName = firstName.trim();
+          if(firstName != null &amp;&amp; firstName.contains(" ")){
+    userFirstName = firstName.substring(0,firstName.indexOf(" "));
+    break;
+          }else{
+            userFirstName = firstName;
+            break;
+          }
+}
+}
+}
+ } else {
+   log.debug("No Success Factors Link found for the Identity : "+identity.getDisplayName());
+ }
+}
+
+if(userFirstName != null){
+       
+return userFirstName;
+
+}
+if(identity.getAttribute("source") != null &amp;&amp; identity.getAttribute("source").equalsIgnoreCase("IdentityIQ")){
+  return identity.getAttribute("firstname");
+    }
+    return null;
+  }
+
+  public void mailSend(Identity identity,String emailTo,String mailtemplate,String attachmentPath)
+  {	  
+    System.out.println("emailTo..."+emailTo);
+    EmailTemplate template = context.getObjectByName(EmailTemplate.class, mailtemplate);
+    if (null == template) {   
+      return;
+    }
+
+    template = (EmailTemplate) template.deepCopy(context);
+    if (null == template) {				
+      return;
+    }	  
+    Map args = new HashMap();
+    args.put("name", identity.getName());
+    args.put("firstname", identity.getAttribute("firstname"));
+    args.put("lastname", identity.getLastname());
+    EmailOptions ops = new EmailOptions(emailTo, args);
+    if(Util.isNotNullOrEmpty(attachmentPath) )
+    {		 
+      String fileName="MHP_Onboarding_Guide.pdf";
+      byte[] fileData = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(attachmentPath));
+      EmailFileAttachment attachment = new EmailFileAttachment( fileName, EmailFileAttachment.MimeType.MIME_PDF, fileData );
+      ops.addAttachment(attachment);
+    }
+    context.sendEmailNotification(template, ops);
+  }
+ 
+ 
+ 
+  </Source>
+</Rule>

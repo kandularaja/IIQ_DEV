@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1698989724538" id="c0a81db38b7f179d818b93add37a259e" modified="1699609395438" name="Entitlement Add Form" type="Workflow">
+  <Section columns="2" label="Entitlements" name="customProperties">
+    <Field displayName="Entitlements " displayType="textarea" helpKey="Enter entitlements in comma seperate" name="Entitlements">
+      <Attributes>
+        <Map>
+          <entry key="height" value="250"/>
+          <entry key="width" value="350"/>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field displayName="Exclude Inactive Identities" displayType="comboBox" name="excludeInactiveIds" type="boolean"/>
+  </Section>
+</Form>

@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger created="1715324429941" handler="sailpoint.api.WorkflowTriggerHandler" id="c0a800918f5b1b50818f614da67504e8" modified="1715325940999" name="MHP_SET_MFA" type="Create">
+  <Owner>
+    <Reference class="sailpoint.object.Identity" id="c0a81db3874f140081874fc432ae00ec" name="spadmin"/>
+  </Owner>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="businessProcess"/>
+        <entry key="workflow" value="MHP-EmailProvisiontoADWorkflow"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+  <Selector>
+    <IdentitySelector>
+      <MatchExpression>
+        <MatchTerm name="EmployeeID" type="IdentityAttribute" value="1027"/>
+      </MatchExpression>
+    </IdentitySelector>
+  </Selector>
+</IdentityTrigger>

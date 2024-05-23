@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1703573802072" id="c0a800918c7b1d9e818ca4e94c581372" language="beanshell" modified="1706111542376" name="MY POWERSHELL SCRIPT RULE" type="ConnectorBeforeCreate">
+  <Attributes>
+    <Map>
+      <entry key="ObjectOrientedScript" value="true"/>
+      <entry key="disabled" value="false"/>
+      <entry key="extension" value=".ps1"/>
+      <entry key="program" value="powershell.exe"/>
+      <entry key="timeout" value="20"/>
+    </Map>
+  </Attributes>
+  <Source>
+Add-type -path utils.dll
+write-host "something from iiq __REPLACEME__ !" 
+try {
+# do something
+$resultValue = "good";
+}
+catch {
+# handle error
+$resultValue = "bad";
+}
+
+# Can use the request object to return values
+$sReader = New-Object System.IO.StringReader([System.String]$env:Request);
+# Form the xml reader object
+$xmlReader = [System.xml.XmlTextReader]([sailpoint.Utils.xml.XmlUtil]::getReader($sReader));
+# Create SailPoint Request object
+$requestObject = New-Object Sailpoint.Utils.objects.AccountRequest($xmlReader);
+# Loop through the attributes from the request
+foreach ($attribute in $requestObject.AttributeRequests){
+$attribute.value = $resultValue;
+}
+# Add a new attribute to request
+# Write the request xml to file at the path passed as argument
+$requestObject.toxml()|out-file $args[0];
+</Source>
+</Rule>

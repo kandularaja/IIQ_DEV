@@ -1,0 +1,1117 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1716192562808" id="c0a800918f941295818f950c4e780085" language="beanshell" name="NYU-RuleLibrary-Urgent-Offboarding">
+  <Description>
+    This library contains methods to process the Urgent Offboarding. The functions in the library handle the
+    offboarding of accounts that the user has, regardless of the roles they have. It also handles setting the 
+    Security Hold details and flag since this is Urgent. 
+  </Description>
+  <Source>
+    
+ /**
+  *    NYU-RuleLibrary-Urgent-Offboarding
+  *                                                                                    
+  *    This library contains methods to process the Urgent Offboarding.                                                            
+  *                                                                                                                                         
+  **/
+  import java.util.ArrayList;
+  import java.util.Random;
+  import java.util.List;
+  import java.text.SimpleDateFormat;
+  import java.text.ParseException;
+  import java.util.Date;	
+  import java.util.*;
+  import sailpoint.object.*;
+  import sailpoint.tools.*;
+  import sailpoint.api.*;
+  import sailpoint.connector.*;
+  import org.apache.commons.logging.Log;
+  import org.apache.commons.logging.LogFactory;
+  import sailpoint.object.Attributes;  
+  import sailpoint.object.Custom;
+  import sailpoint.object.Filter;
+  import sailpoint.object.Identity;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.plugin.PluginBaseHelper;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+  import sailpoint.api.Identitizer;
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.Provisioner;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.api.TaskManager;
+  import sailpoint.integration.Util;
+  import sailpoint.object.Application;
+  import sailpoint.object.Link;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AccountRequest.Operation;
+  import sailpoint.object.*;
+  import sailpoint.workflow.StandardWorkflowHandler;
+  import sailpoint.api.RequestManager;
+  import sailpoint.connector.Connector;  
+  import sailpoint.object.ResourceObject; 
+
+  static Log log = LogFactory.getLog("nyu.rules.NYU-RuleLibrary-Urgent-Offboarding");
+  SailPointContext context = SailPointFactory.getCurrentContext();
+
+  Application gappsApp = context.getObject(Application.class,"Google Apps"); 
+  Application duoApp = context.getObject(Application.class,"Duo"); 
+  Application adApp = context.getObject(Application.class,"AD"); 
+  Application adShanghiApp = context.getObject(Application.class,"Shanghai AD"); 
+  Application radiusApp = context.getObject(Application.class,"Radius");
+
+  /********************************************************************
+   * doOffboard2 obsolete 
+   *   - Main entry point for urgent offboarding applications.
+   ********************************************************************/   
+  public String doOffboard2(map) throws Exception 
+  { 
+    IdentityService idService = new IdentityService(context); 
+    log.debug("Entering UO doOffboard");
+    log.debug("Under doOffboarding.." +map);
+
+    SailPointContext context = SailPointFactory.getCurrentContext();
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    String msg = null;
+    try 
+    {
+      String guid = (String)map.get("name");//This is the Name field of the Identity, not the ID Field
+      String identName = (String)map.get("name");
+      String comments = (String)map.get("comments");
+      String googleAccess = (String)map.get("googleAccess");
+      String endDate = (String)map.get("endDate");
+      String password = (String)map.get("password");
+      String requestor = (String)map.get("launcher");
+
+      //Log the values retrieved from the map
+      log.debug("NYU-RuleLibrary-Urgent-Offboarding:: guid: " + guid);
+      log.debug("NYU-RuleLibrary-Urgent-Offboarding:: comments: " + comments);
+      log.debug("NYU-RuleLibrary-Urgent-Offboarding:: googleAccess: " + googleAccess);
+      log.debug("NYU-RuleLibrary-Urgent-Offboarding:: endDate: " + endDate);
+      //log.debug("NYU-RuleLibrary-Urgent-Offboarding:: password: " + password); //Do not log this unless debugging
+      log.debug("NYU-RuleLibrary-Urgent-Offboarding:: requestor: " + requestor);
+
+      Identity identity = context.getObjectByName(Identity.class, guid);
+      if (identity == null) {
+        msg = "No identity found for GUID: " + guid;
+        log.debug("Exiting UO doOffboard");
+        return msg;
+      }
+      
+      log.debug("Before Plan Build: " + System.currentTimeMillis());
+      plan.setIdentity(identity);
+      plan.setNativeIdentity(guid);
+      AccountRequest acr = new AccountRequest();
+      acr.setOperation(Operation.Modify);
+      acr.setNativeIdentity(identity.getName());
+      acr.setApplication(ProvisioningPlan.IIQ_APPLICATION_NAME);
+        
+      ProvisioningPlan.AttributeRequest userTypeAttribute = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute.setName("securityHold");
+      userTypeAttribute.setValue("Y");
+     
+      ProvisioningPlan.AttributeRequest userTypeAttribute1 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute1.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute1.setName("securityHoldSetBy");
+      Identity setByIdentity = context.getObjectByName(Identity.class, requestor); 
+      String setByNetID = setByIdentity.getAttribute("netId");
+      log.trace("NYU-RuleLibrary-Urgent-Offboarding:: setByNetID: " + setByNetID);
+      userTypeAttribute1.setValue(setByNetID);
+       
+      ProvisioningPlan.AttributeRequest userTypeAttribute2 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute2.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute2.setName("securityHoldComments");
+      userTypeAttribute2.setValue(comments);
+           
+      ProvisioningPlan.AttributeRequest userTypeAttribute3 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute3.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute3.setName("securityHoldDate");
+      userTypeAttribute3.setValue(endDate);
+    
+      acr.add(userTypeAttribute);
+      acr.add(userTypeAttribute1);
+      acr.add(userTypeAttribute2);
+      acr.add(userTypeAttribute3);
+
+      plan.add(acr);    
+      log.debug("UO IIQ Plan:  " + plan.toXml());
+
+      // Provision the plan
+      Provisioner p = new Provisioner(context);
+      p.setNoLocking(false);
+      p.execute(p.compile(plan));
+      log.trace("After plan execution: " + System.currentTimeMillis());
+      
+      // Reload the user after executing the plan.
+      // IAMR-2820 - LazyInitializationException
+      identity = context.getObjectByName(Identity.class, guid);
+      
+      // Refresh the users
+      Attributes args = new Attributes();
+      args.put("enablePartitioning", "false");
+      args.put("correlateEntitlements", "true");
+      args.put("provision", "true");
+      Identitizer identitizer = new Identitizer(context, args);
+      identitizer.refresh(identity);
+    
+      context.commitTransaction();
+      log.debug("After IIQ commit: " + System.currentTimeMillis());
+      
+      msg = "Success";
+      
+
+      // Disable the applications for the user: AD, SHAD, Radius, (Google or Duo)
+      String gappsdisableresult;
+      String duodisableresult;
+   
+      log.trace("Checking for Google Accounts and disabling: " + System.currentTimeMillis());  
+      if ( googleAccess.equals("No") )
+      {
+        log.debug("ID" + identity.getId());
+        List linkgapps = idService.getLinks(identity,gappsApp);  
+        if ( linkgapps != null &amp;&amp; linkgapps != void &amp;&amp; linkgapps.size() > 0 )
+        { 
+          //gappsdisableresult = disableGoogleApps(identity);
+          gappsdisableresult = disableGoogleApps(identName);
+          log.debug("Google Result Mgs: "+gappsdisableresult);
+        } else {
+          log.debug("GoogleApps Not assigned");
+        }
+      }
+      // IAMR 2886 - Disable Duo in Urgent Offboarding
+      // else if ( googleAccess.equals("Yes") )
+      // {
+        log.debug("ID" + identity.getId());
+
+        List linkduo = idService.getLinks(identity,duoApp);  
+        if ( linkduo != null &amp;&amp; linkduo != void &amp;&amp; linkduo.size() > 0 )
+        { 
+          //duodisableresult = disableDuo(identity);
+          duodisableresult = disableDuo(identName);
+          log.debug("Duo Result Mgs: "+duodisableresult);
+        } else {
+          log.debug("Duo Not assigned");
+        }
+      // }
+      
+      log.trace("Checking for Radius Accounts and disabling: " + System.currentTimeMillis());  
+      List linkRadius = idService.getLinks(identity,radiusApp);  
+      if ( linkRadius != null &amp;&amp; linkRadius != void &amp;&amp; linkRadius.size() > 0)
+      { 
+        //String radiusdisableresult = disableRadius(identity);
+        String radiusdisableresult = disableRadius(identName);
+        log.debug("Radius Result Mgs: "+radiusdisableresult);
+      } else {
+        log.debug("radius Not assigned");
+      }
+      
+      log.trace("Checking for AD Accounts and disabling: " + System.currentTimeMillis());
+      List linkAD = idService.getLinks(identity,adApp);  
+      if ( linkAD != null &amp;&amp; linkAD != void &amp;&amp; linkAD.size() > 0 )
+      { 
+        //String addisableresult = disableAD(identity);
+        String addisableresult = disableAD(identName);
+        log.debug("AD Result Mgs: "+ addisableresult);
+      } else {
+        log.debug("AD Not assigned");
+      }
+      
+      log.trace("Checking for SHAD Accounts and disabling: " + System.currentTimeMillis());   
+      List linkShangaiAD = idService.getLinks(identity,adShanghiApp);  
+      if ( linkShangaiAD != null &amp;&amp; linkShangaiAD != void &amp;&amp; linkShangaiAD.size() > 0 )
+      { 
+        //String shangaiaddisableresult = disableShangaiAD(identity);
+        String shangaiaddisableresult = disableShangaiAD(identName);
+        log.debug("SHAD Result Mgs: "+shangaiaddisableresult);
+      } else {
+        log.debug("Shangai AD Not assigned");
+      }
+      
+      log.trace("After Checking Apps: " + System.currentTimeMillis());  
+        
+      log.debug("Result " + msg);
+      context.decache(identity);
+      log.debug("Exiting UO doOffboard");
+      return msg;
+    } catch (Exception e) {
+      log.error("ENTERING UO Exception for ["+identName+"]");
+      log.error("Exception occurred in UO doOffboard: \n"+e.printStackTrace());
+      
+      if ( null != e &amp;&amp; null != e.getMessage() )
+      {
+        msg = e.getMessage().toString();       
+      } else {
+        msg = "Exception occurred in doOffboard in UO, but message is null.";
+      }
+      
+      log.error("UO msg under catch is " + msg);
+      log.debug("Exiting UO doOffboard");
+      return msg ;
+    }
+  }
+  
+  /********************************************************************
+   * Call PasswordIntercept 
+   ********************************************************************/   
+  public String callPwdIntercept(String guid, String password)
+  {
+    log.debug("ENTERING UO callPwdIntercept");   
+    log.debug("guid" + guid);
+    //log.debug("password" + password); // Only turn on for logging
+    
+    List targetApps = new ArrayList();
+    targetApps.add("Radius");
+    targetApps.add("AD");
+    targetApps.add("Shanghai AD");
+    targetApps.add("Google Apps");
+    targetApps.add("LDAP");
+    
+    String timeStamp =  Util.dateToString(new Date(), "yyyyMMdd HH.mm.ss");
+    log.debug("timestamp:" +timestamp);
+    
+    // run workflow: Password Intercept Workflow
+    Map launchArgsMap = new HashMap();
+    launchArgsMap.put("targetApplications", targetApps); //app apps in the list above which we sync a password to
+    launchArgsMap.put("identityName", guid); //guid of the user
+    launchArgsMap.put("applicationName", "IIQ");
+    launchArgsMap.put("nativeIdentity", guid); //guid of the user
+    launchArgsMap.put("password", password); // clear text password
+    launchArgsMap.put("timestamp", timeStamp); // current time in: yyyyMMdd HH.mm.ss:America/New_York format  i.e. 20200625 11.24.15
+    launchArgsMap.put("syncAll", "false");
+    launchArgsMap.put("scramblePassword", "false");
+    
+    
+    //launching workflow
+    Workflow wf = (Workflow)context.getObjectByName(Workflow.class,"Password Intercept");
+    WorkflowLaunch wflaunch = new WorkflowLaunch();
+    wflaunch.setWorkflowName(wf.getName());  
+    wflaunch.setWorkflowRef(wf.getName());
+    wflaunch.setCaseName("Urgent Offboarding Password Scramble for " + guid);
+    wflaunch.setVariables(launchArgsMap);  
+    Workflower workflower = new Workflower(context);
+    WorkflowLaunch launch = workflower.launch(wflaunch); 
+    log.debug("Successfully launched the workflow");
+    
+    log.debug("EXITING UO callPwdIntercept");
+    return "Success";
+  } 
+   
+  /**************************************************************************************************************
+   *
+   *   Disable Application Function.
+   *      - Functions take in the identityName rather than Passing the Identity object, as that causes an error (IAMR-2844). 
+   *
+   **************************************************************************************************************/
+
+
+  /********************************************************************
+   * Disable Google 
+  ********************************************************************/ 
+  public String disableGoogleApps(String idName) 
+  {
+    log.debug("ENTERING UO disableGoogleApps for ["+idName+"]");
+    
+    log.debug("Under disableGoogleApps Method identity in AccountOffboarding "+ idName);
+    IdentityService idService = new IdentityService(context); 
+  
+    //Load the Identity
+    Identity localIdent = context.getObjectByName(Identity.class, idName);
+
+    List gappsLinks = idService.getLinks(localIdent,gappsApp);
+    Link linkgapps = gappsLinks.get(0);  
+    if ( null == linkgapps )
+    {
+      log.debug("No Google Apps links found for  " + idName);
+      log.debug("EXITING UO disableGoogleAppsStr for ["+idName+"]");
+      return "Success - No Google Apps Links found.";
+    }
+    
+    String accountName = linkgapps.getNativeIdentity();
+    log.debug("gapps accountName is " + accountName);
+     
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    log.debug("ID: " + localIdent.getId());
+    log.debug("Before Plan Build: " + System.currentTimeMillis());
+    plan.setIdentity(localIdent);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(Operation.Modify);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication("Google Apps");
+
+    ProvisioningPlan.AttributeRequest userTypeAttribute = new ProvisioningPlan.AttributeRequest();
+    userTypeAttribute.setOperation(ProvisioningPlan.Operation.Set);
+    userTypeAttribute.setName("suspended");//pwd
+    userTypeAttribute.setValue(true);//pwd
+    acr.add(userTypeAttribute);
+        
+    ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+    disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+    disableAttribute.setName("IIQDisabled");//pwd
+    disableAttribute.setValue(true);//pwd
+    acr.add(disableAttribute);
+       
+    plan.add(acr);
+
+    log.debug("Updated Plan with AccountRequests " );
+    log.debug("UO Google Plan: " + plan.toXml());
+
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+    log.debug("After plan execution: gappdisable" + System.currentTimeMillis());
+      
+    // Reload the user after executing the plan.
+    // IAMR-2820 - LazyInitializationException
+    localIdent = context.getObjectByName(Identity.class, idName);
+     
+    Attributes args = new Attributes();
+    args.put("enablePartitioning", "false");
+    args.put("correlateEntitlements", "true");
+    args.put("provision", "true");
+    Identitizer identitizer = new Identitizer(context, args);
+    identitizer.refresh(localIdent);
+  
+    context.decache(localIdent);
+    log.debug("EXITING UO disableGoogleApps for ["+idName+"]");
+      
+    return "disablegapps Success";
+
+  }
+
+  /********************************************************************
+   * Disable Duo 
+   ********************************************************************/  
+  public String disableDuo(String idName) 
+  {
+    log.debug("ENTERING UO disableDuoStr for ["+idName+"]");
+    
+    log.debug("Under disableDuoStr Method identity in AccountOffboarding "+ idName);
+    IdentityService idService = new IdentityService(context); 
+    
+    //Load the Identity
+    Identity localIdent = context.getObjectByName(Identity.class, idName);
+
+    List duoLinks = idService.getLinks(localIdent,duoApp);
+    Link linkduo = duoLinks.get(0);  
+    if ( null == linkduo )
+    {
+      log.debug("No Duo links found for  " + idName);
+      log.debug("EXITING UO disableDuoStr for ["+idName+"]");
+      return "Success - No Duo Links found.";
+    }
+    
+    String accountName = linkduo.getNativeIdentity();
+    log.debug("duo accountName is " + accountName);
+     
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    log.debug("ID" + localIdent.getId());
+    log.debug("Before Plan Build: " + System.currentTimeMillis());
+    plan.setIdentity(localIdent);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(Operation.Modify);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication("Duo");
+
+    ProvisioningPlan.AttributeRequest userTypeAttribute = new ProvisioningPlan.AttributeRequest();
+    userTypeAttribute.setOperation(ProvisioningPlan.Operation.Set);
+    userTypeAttribute.setName("status");//pwd
+    userTypeAttribute.setValue("disabled");//pwd
+    acr.add(userTypeAttribute);
+        
+    ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+    disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+    disableAttribute.setName("IIQDisabled");//pwd
+    disableAttribute.setValue(true);//pwd
+    acr.add(disableAttribute);
+        
+    plan.add(acr);
+
+    log.debug("Updated Plan with AccountRequests " );
+    log.debug("UO SHAD Plan: " + plan.toXml());
+
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+    log.debug("After plan execution: duodisable" + System.currentTimeMillis());
+      
+    // Reload the user after executing the plan.
+    // IAMR-2820 - LazyInitializationException
+    localIdent = context.getObjectByName(Identity.class, idName);
+      
+    Attributes args = new Attributes();
+    args.put("enablePartitioning", "false");
+    args.put("correlateEntitlements", "true");
+    args.put("provision", "true");
+    Identitizer identitizer = new Identitizer(context, args);
+    identitizer.refresh(localIdent);
+        
+    context.decache(localIdent);
+    log.debug("EXITING UO disableDuoStr for ["+idName+"]");
+      
+    return "disable Duo Success";
+  }
+  
+  /********************************************************************
+   * Disable AD 
+   ********************************************************************/
+  public String disableAD(String idName) 
+  {
+    log.debug("ENTERING UO disableADStr for ["+idName+"]");
+    
+    log.debug("Under disableADStr Method identity in AccountOffboarding "+ idName);
+    IdentityService idService = new IdentityService(context); 
+    
+    //Load the Identity
+    Identity localIdent = context.getObjectByName(Identity.class, idName);
+
+    List adLinks = idService.getLinks(localIdent,adApp);
+    Link linkAD = adLinks.get(0);  
+    if ( null == linkAD )
+    {
+      log.debug("No AD links found for  " + idName);
+      log.debug("EXITING UO disableADStr for ["+idName+"]");
+      return "Success - No AD Links found.";
+    }
+    
+    String accountName = linkAD.getNativeIdentity();
+    log.debug("AD accountName is " + accountName);
+     
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    log.debug("ID" + localIdent.getId());
+    log.debug("Before Plan Build: " + System.currentTimeMillis());
+    plan.setIdentity(localIdent);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(Operation.Disable);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication("AD");
+      
+    plan.add(acr);
+
+    log.debug("Updated Plan with AccountRequests " );
+    log.debug("UO AD Plan: " + plan.toXml());
+
+
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+    log.debug("After plan execution: addisable" + System.currentTimeMillis());
+      
+    // Reload the user after executing the plan.
+    // IAMR-2820 - LazyInitializationException
+    localIdent = context.getObjectByName(Identity.class, idName);
+      
+    Attributes args = new Attributes();
+    args.put("enablePartitioning", "false");
+    args.put("correlateEntitlements", "true");
+    args.put("provision", "true");
+    Identitizer identitizer = new Identitizer(context, args);
+    identitizer.refresh(localIdent);
+    
+    context.decache(localIdent);
+    log.debug("EXITING UO disableADStr for ["+idName+"]");
+      
+    return "disable AD Success";
+  }
+  
+  /********************************************************************
+   * Disable Shanghai AD 
+   ********************************************************************/
+  public String disableShangaiAD(String idName) 
+  {
+    log.debug("ENTERING UO disableShangaiADStr for ["+idName+"]");
+    
+    log.debug("Under disableShangaiADStr Method identity in AccountOffboarding "+ idName);
+    IdentityService idService = new IdentityService(context); 
+    
+    //Load the Identity
+    Identity localIdent = context.getObjectByName(Identity.class, idName);
+
+
+    List adshangaiLinks = idService.getLinks(localIdent,adShanghiApp);
+    Link linkShangaiAD = adshangaiLinks.get(0);  
+    if ( null == linkShangaiAD )
+    {
+      log.debug("No SHAD links found for  " + idName);
+      log.debug("EXITING UO disableShangaiADStr for ["+idName+"]");
+      return "Success - No SHAD Links found.";
+    }
+    
+    String accountName = linkShangaiAD.getNativeIdentity();
+    log.debug("AD accountName is " + accountName);
+     
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    log.debug("ID" + localIdent.getId());
+    log.debug("Before Plan Build: " + System.currentTimeMillis());
+    plan.setIdentity(localIdent);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(Operation.Disable);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication("Shanghai AD");
+        
+    plan.add(acr);
+
+    log.debug("Updated Plan with AccountRequests " );
+    log.debug("UO SHAD Plan: " + plan.toXml());
+
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+    log.debug("After plan execution: shaddisable" + System.currentTimeMillis());
+      
+    // Reload the user after executing the plan.
+    // IAMR-2820 - LazyInitializationException
+    localIdent = context.getObjectByName(Identity.class, idName);
+      
+    Attributes args = new Attributes();
+    args.put("enablePartitioning", "false");
+    args.put("correlateEntitlements", "true");
+    args.put("provision", "true");
+    Identitizer identitizer = new Identitizer(context, args);
+    identitizer.refresh(localIdent);
+        
+    context.decache(localIdent);
+    log.debug("EXITING UO disableSHADStr for ["+idName+"]");
+      
+    return "disable ShangaiAD Success";
+  } 
+  
+  /********************************************************************
+   * Disable Radius 
+   ********************************************************************/
+  public String disableRadius(String idName) 
+  {
+    log.debug("ENTERING UO disableRadiusStr for ["+idName+"]");
+   
+    log.debug("Under disableRadius Method identity in AccountOffboarding: "+ idName);
+    IdentityService idService = new IdentityService(context); 
+    
+    //Load the Identity
+    Identity localIdent = context.getObjectByName(Identity.class, idName);
+
+    List radiusLinks = idService.getLinks(localIdent,radiusApp);
+    Link linkRadius = radiusLinks.get(0);  
+    if ( null == linkRadius )
+    {
+      log.debug("No Radius links found for  " + idName);
+      log.debug("EXITING UO disableRadiusStr for ["+idName+"]");
+      return "Success - No Radius Links found.";
+    }
+    
+    String accountName = linkRadius.getNativeIdentity();
+    log.debug("Radius accountName is " + accountName);
+     
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    log.debug("Rad ID" + localIdent.getId());
+    log.debug("Rad Before Plan Build: " + System.currentTimeMillis());
+    plan.setIdentity(localIdent);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(ProvisioningPlan.AccountRequest.Operation.Disable);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication("Radius");
+     
+    ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+    disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+    disableAttribute.setName("IIQDisabled");
+    disableAttribute.setValue(true);
+    acr.add(disableAttribute);
+        
+    plan.add(acr);
+
+    log.debug("Updated Plan with AccountRequests " );
+    log.debug("UO GooRadiusgle Plan: " + plan.toXml());
+
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+    log.debug("After plan execution: disableRadiusStr" + System.currentTimeMillis());
+      
+    // Reload the user after executing the plan.
+    // IAMR-2820 - LazyInitializationException
+    localIdent = context.getObjectByName(Identity.class, idName);
+      
+    Attributes args = new Attributes();
+    args.put("enablePartitioning", "false");
+    args.put("correlateEntitlements", "true");
+    args.put("provision", "true");
+    Identitizer identitizer = new Identitizer(context, args);
+    identitizer.refresh(localIdent);
+    
+    context.decache(localIdent);
+    log.debug("EXITING UO disableRadiusStr for ["+idName+"]");
+      
+    return "disable Radius Success";
+  } 
+
+   /********************************************************************
+   * doOffboard
+   *
+   *  Description:
+   *    Main entry point for urgent offboarding applications.
+   *
+   *    (1) We record security hold = Y and other info on the identity.
+   *    
+   *    (2) We disable all links except for those in the List "linksToExcludeFromDisable",
+   *      along with those needed for google temp access (if temp access is requested).
+   *      
+   *    (3) If google temp access IS requested, we set Duo status to "bypass" and ensure the link is enabled.
+   *      Otherwise, we set Duo status to "active" and ensure the link is disabled.
+   *    
+   *  Parameters:
+   *  - name // aka guid
+   *  - googleAccess
+   *  - comments
+   *  - secHoldDate
+   *  - secHoldTempAccessEndDate
+   *  - launcher: SailPoint User who initiated the process
+   *
+   * Returns:
+   *  - null on success
+   *  - Error String on failure
+   ********************************************************************/   
+  public String doOffboard(map) throws Exception { 
+    String prefix = "NYU-RuleLibrary-Urgent-Offboarding: doOffboard(map): ";
+    log.debug(prefix + "Entering doOffboard");
+
+    String identName = (String)map.get("name"); // aka guid
+    String comments = (String)map.get("comments");
+    String googleAccess = (String)map.get("googleAccess");
+    String secHoldDate = (String)map.get("secHoldDate");
+    String secHoldTempAccessEndDate = (String)map.get("secHoldTempAccessEndDate");
+    String requestor = (String)map.get("launcher");
+
+    log.debug(prefix + "guid: " + identName);
+    log.debug(prefix + "comments: " + comments);
+    log.debug(prefix + "googleAccess: " + googleAccess);
+    log.debug(prefix + "secHoldDate: " + secHoldDate);
+    log.debug(prefix + "secHoldTempAccessEndDate: " + secHoldTempAccessEndDate);
+    log.debug(prefix + "requestor: " + requestor);
+
+    String retMsg = null;
+    SailPointContext context = SailPointFactory.getCurrentContext();
+
+    Provisioner p = new Provisioner(context);
+
+    try {
+      Identity identity = context.getObjectByName(Identity.class, identName);
+      if (identity == null) {
+        retMsg = "No identity found for GUID: " + identName;
+        log.debug(prefix + "Exiting doOffboard");
+        return retMsg;
+      }
+      
+      // Disable all links except for the following:
+      List linksToExcludeFromDisable = new ArrayList();
+      linksToExcludeFromDisable.add("SIS");
+      linksToExcludeFromDisable.add("SIS ID");
+      linksToExcludeFromDisable.add("Affiliate");
+      linksToExcludeFromDisable.add("HR");
+      linksToExcludeFromDisable.add("Langone");
+      linksToExcludeFromDisable.add("Advance");
+      linksToExcludeFromDisable.add("Stern Email");
+      linksToExcludeFromDisable.add("ServiceNow");
+      linksToExcludeFromDisable.add("ServiceNowZboot");
+      linksToExcludeFromDisable.add("Registry");
+      linksToExcludeFromDisable.add("LMS");
+
+      // Ensure the following links are enabled (if already present) when temp access is requested:
+      // These links will be disabled by "NYU-Rule-RevokeUrgentOffboardingTempAccess" when tempAccessEndDate has lapsed.
+      List linksToEnableForTempAccess = new ArrayList();
+      linksToEnableForTempAccess.add("LDAP");
+      linksToEnableForTempAccess.add("Duo");
+      linksToEnableForTempAccess.add("Google Apps");
+
+      List links = identity.getLinks();
+      if (null != links) {
+        if ("Yes".equalsIgnoreCase(googleAccess)) {
+          for (Link link : links) {
+            if (!linksToExcludeFromDisable.contains(link.getApplicationName()) 
+              &amp;&amp; !linksToEnableForTempAccess.contains(link.getApplicationName())) 
+            {
+              disableAccount(identName, link.getApplicationName());
+            }
+          }
+          for (Link link : links) {
+            if (linksToEnableForTempAccess.contains(link.getApplicationName())) {
+              enableAccount(identName, link.getApplicationName());
+            }
+          }
+        } else {
+          for (Link link : links) {
+            if (!linksToExcludeFromDisable.contains(link.getApplicationName())) {
+              disableAccount(identName, link.getApplicationName());
+            }
+          }
+        }
+      }
+
+      // Provision Security Hold attributes on the identity for later syncing to LDAP (via Password Intercept)
+      ProvisioningPlan plan = new ProvisioningPlan(); 
+      plan.setIdentity(identity);
+      plan.setNativeIdentity(identName);
+
+      AccountRequest acr = new AccountRequest();
+      acr.setOperation(Operation.Modify);
+      acr.setNativeIdentity(identity.getName());
+      acr.setApplication(ProvisioningPlan.IIQ_APPLICATION_NAME);
+      
+      ProvisioningPlan.AttributeRequest userTypeAttribute = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute.setName("securityHold");
+      userTypeAttribute.setValue("Y");
+     
+      ProvisioningPlan.AttributeRequest userTypeAttribute1 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute1.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute1.setName("securityHoldSetBy");
+      Identity setByIdentity = context.getObjectByName(Identity.class, requestor); 
+      if (null==setByIdentity) {
+        setByIdentity = context.getObjectByName(Identity.class, "spadmin"); 
+      }
+      String setByNetID = setByIdentity.getAttribute("netId");
+      userTypeAttribute1.setValue(setByNetID);
+       
+      ProvisioningPlan.AttributeRequest userTypeAttribute2 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute2.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute2.setName("securityHoldComments");
+      userTypeAttribute2.setValue(comments);
+           
+      ProvisioningPlan.AttributeRequest userTypeAttribute3 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute3.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute3.setName("securityHoldDate");
+      userTypeAttribute3.setValue(secHoldDate);
+
+      ProvisioningPlan.AttributeRequest userTypeAttribute4 = new ProvisioningPlan.AttributeRequest();
+      userTypeAttribute4.setOperation(ProvisioningPlan.Operation.Set);
+      userTypeAttribute4.setName("securityHoldTempAccessEndDate");
+
+      if ("Yes".equalsIgnoreCase(googleAccess)) {
+        userTypeAttribute4.setValue(secHoldTempAccessEndDate);
+      } else {
+        userTypeAttribute4.setValue(null);
+      }
+    
+      acr.add(userTypeAttribute);
+      acr.add(userTypeAttribute1);
+      acr.add(userTypeAttribute2);
+      acr.add(userTypeAttribute3);
+      acr.add(userTypeAttribute4);
+
+      // Provision Duo Status=Bypass if temp access is neeeded
+      // We alternatively provision Duo Status=active in case temp access is not needed.
+      if ("Yes".equalsIgnoreCase(googleAccess)) {
+        Application duoApp = context.getObjectByName(Application.class, "Duo");
+        IdentityService idService = new IdentityService(context);
+        List duoLinks = idService.getLinks(identity,duoApp);
+        if (Util.nullSafeSize(duoLinks) > 0) {
+          for (Link duoLink : duoLinks) {
+            log.trace(prefix + "Setting Duo to Bypass and enabling...");
+            AccountRequest duoAcr = new AccountRequest();
+            duoAcr.setOperation(Operation.Enable);
+            duoAcr.setNativeIdentity(duoLink.getNativeIdentity());
+            duoAcr.setApplication("Duo");
+
+            ProvisioningPlan.AttributeRequest duoAttrReq = new ProvisioningPlan.AttributeRequest();
+            duoAttrReq.setOperation(ProvisioningPlan.Operation.Set);
+            duoAttrReq.setName("status");
+            duoAttrReq.setValue("bypass");
+            duoAcr.add(duoAttrReq);
+            plan.add(duoAcr);
+          }
+        } else {
+          log.error(prefix + "Can't set Duo to Bypass and enable. Link not found");
+        }
+      } else {
+        Application duoApp = context.getObjectByName(Application.class, "Duo");
+        IdentityService idService = new IdentityService(context);
+        List duoLinks = idService.getLinks(identity,duoApp);
+        if (Util.nullSafeSize(duoLinks) > 0) {
+          for (Link duoLink : duoLinks) {
+            log.trace(prefix + "Setting Duo to Active and disabling...");
+            AccountRequest duoAcr = new AccountRequest();
+            duoAcr.setOperation(Operation.Disable);
+            duoAcr.setNativeIdentity(duoLink.getNativeIdentity());
+            duoAcr.setApplication("Duo");
+
+            ProvisioningPlan.AttributeRequest duoAttrReq = new ProvisioningPlan.AttributeRequest();
+            duoAttrReq.setOperation(ProvisioningPlan.Operation.Set);
+            duoAttrReq.setName("status");
+            duoAttrReq.setValue("active");
+            duoAcr.add(duoAttrReq);
+            plan.add(duoAcr);
+          }
+        } else {
+          log.error(prefix + "Can't set Duo to Active and disable. Link not found");
+        }
+      }
+
+      plan.add(acr);    
+      log.debug(prefix + "Executing IIQ Plan:  " + plan.toXml());
+      p.setNoLocking(false);
+      p.execute(p.compile(plan));
+      log.debug(prefix + "Executed IIQ Plan");
+
+    } catch (Exception e) {
+      retMsg = e.getMessage().toString();
+      log.error(prefix + retMsg);
+    }
+    log.debug(prefix + "Exiting doOffboard");
+    return retMsg; 
+  }
+  
+  /********************************************************************
+   * Disable account by App Name 
+   * Does nothing, when the link is not found
+   * THIS DOESN'T WORK FOR GOOGLE: Use NYU-RuleLibrary-GoogleCommands/changeGooglePasswordAndSuspend(); Instead!
+  ********************************************************************/
+  public void disableAccount(String idName, String appName) 
+  {
+    String prefix = "NYU-RuleLibrary-Urgent-Offboarding: disableAccount(map): ";
+    log.debug(prefix + "ENTERING disable account " + appName + " for ["+idName+"]");
+    Application app = context.getObject(Application.class,appName);
+    Identity identity = context.getObjectByName(Identity.class, idName);
+
+    IdentityService idService = new IdentityService(context); 
+    // handle multiiple accounts
+    String accountName = "";
+    List links = idService.getLinks(identity, app);
+    for (Link link:links) {
+      if (!link.isDisabled()) {
+        accountName = link.getNativeIdentity();
+        break;
+      }
+    }
+    if (accountName.equals("")) {
+      log.debug(prefix + "EXITING disable account " + appName + " doing nothing for ["+idName+"]");
+      return;
+    }
+
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    plan.setIdentity(identity);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(ProvisioningPlan.AccountRequest.Operation.Disable);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication(appName);
+    plan.add(acr);
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+
+    log.debug(prefix + "EXITING disable account " + appName + " for ["+idName+"]");
+  } 
+
+  /********************************************************************
+   * Enable account by App Name
+   * Does nothing, when the link is not found
+   * THIS DOESN'T WORK FOR GOOGLE: Use NYU-RuleLibrary-GoogleCommands/changeGooglePasswordAndSuspend(); Instead!
+  ********************************************************************/
+  public void enableAccount(String idName, String appName) 
+  {
+    String prefix = "NYU-RuleLibrary-Urgent-Offboarding: enableAccount(map): ";
+    log.debug(prefix + "ENTERING enable account " + appName + " for ["+idName+"]");
+    Application app = context.getObject(Application.class,appName);
+    Identity identity = context.getObjectByName(Identity.class, idName);
+
+    IdentityService idService = new IdentityService(context); 
+    // handle multiiple accounts
+    String accountName = "";
+    List links = idService.getLinks(identity, app);
+    for (Link link:links) {
+      if (link.isDisabled()) {
+        accountName = link.getNativeIdentity();
+        break;
+      }
+    }
+    if (accountName.equals("")) {
+      log.debug(prefix + "EXITING enable account " + appName + " doing nothing for ["+idName+"]");
+      return;
+    }
+
+    ProvisioningPlan plan = new ProvisioningPlan(); 
+    plan.setIdentity(identity);
+    plan.setNativeIdentity(idName);
+
+    AccountRequest acr = new AccountRequest();
+    acr.setOperation(ProvisioningPlan.AccountRequest.Operation.Enable);
+    acr.setNativeIdentity(accountName);
+    acr.setApplication(appName);
+    plan.add(acr);
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    p.execute(p.compile(plan));
+    log.debug(prefix + "EXITING enable account " + appName + " for ["+idName+"]");
+  } 
+  
+  /*****************************************************************************
+   * The validatePrivilegedAccount to  check the type of User
+   * @return boolean - True if the user is privileged account type, False otherwise
+  ******************************************************************************/
+  public boolean validatePrivilegedAccount(SailPointContext context,String identityName) throws GeneralException {
+    log.debug("===== Entered In validatePrivilegedAccount ===== "+ identityName);
+    // Four privileged account types
+    List privilegedAccountTypes = new ArrayList(Arrays.asList("nyu_ad_administrator_account", "nyu_ad_service_account", "nyu_special_account", "nyu_test_account"));
+    
+    boolean isPrivilegedaccount = false;
+    log.debug("processing " + identityName);
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity != null) {
+      String type = identity.getAttribute("type");
+      if ( Util.isNotNullOrEmpty(type) &amp;&amp; privilegedAccountTypes.contains(type)) {
+        isPrivilegedaccount = true;
+      }
+      // decache
+      context.decache(identity);
+    }
+    log.debug("===== Exiting From validatePrivilegedAccount ===== "+ isPrivilegedaccount);
+    return isPrivilegedaccount;
+  }
+  
+  /*******************************************************************************
+   *  Create and Execute privileged Account Disable Plan
+   * 
+  *********************************************************************************/ 
+  public void createDisablePlanForPrivilegedAccount(SailPointContext context, HashMap formModel, boolean skipProvisioning) {
+    String netIDToDisable = formModel.get("netId");
+    log.debug("===== Entering Into createDisablePlanForPrivilegedAccount ===== "+ netIDToDisable);
+    try
+    {
+      log.debug("processing netID: " + netIDToDisable);
+      Identity privilegedId = context.getUniqueObject(Identity.class,Filter.eq("netId",netIDToDisable));
+      if (privilegedId != null) {
+        String privilegedIdentityName = privilegedId.getName();
+        ProvisioningPlan aPlan = new ProvisioningPlan();
+        aPlan.setIdentity(privilegedId);
+        aPlan.setNativeIdentity(privilegedId.getName());
+            
+        // Update the user's values in IIQ to follow the standard ones.
+        AccountRequest acctReqIIQ = createPrivilegedAccountIIQPlanUpdateFormer(privilegedIdentityName);
+        if (acctReqIIQ != null) {
+          aPlan.add(acctReqIIQ);
+        }         
+        if (aPlan != null) {
+          log.debug("===== The PLAN in createDisablePlanForPrivilegedAccount ===== "+ aPlan.toXml());
+          // executePlan(aPlan,privilegedIdentityName,skipProvisioning);
+          Provisioner p = new Provisioner(context);
+          p.setNoLocking(false);
+          ProvisioningProject project = p.compile(aPlan);
+          if ( !skipProvisioning ) {
+            p.execute();
+          } else {
+            log.debug("Provisioning Skipped.");
+          }
+        }
+        // decache
+        context.decache(privilegedId);
+      }
+    } catch (Exception ex) {
+      log.error("Exception occurred in UO doOffboard: \n" + ex.printStackTrace());
+    }
+    log.debug("===== Exiting From createDisablePlanForPrivilegedAccount ===== ");
+  }
+  
+  /*****************************************************************************
+   *              Preparing IIQ AccountRequest by passing the identity name.
+   ******************************************************************************/
+  public AccountRequest createPrivilegedAccountIIQPlanUpdateFormer(String identityName)
+  {
+    log.debug("===== Entered Into createPrivilegedAccountIIQPlanUpdateFormer ===== "+ identityName );
+    AccountRequest acr = new AccountRequest();
+    Identity privilegedIdentity = context.getObjectByName(Identity.class,identityName);
+    if ( privilegedIdentity != null) {
+      acr.setOperation(Operation.Modify);
+      acr.setNativeIdentity(privilegedIdentity.getName());
+      acr.setApplication(ProvisioningPlan.IIQ_APPLICATION_NAME);
+      
+      String formerAffiliationSubtypes = privilegedIdentity.getAttribute( "formerAffiliationSubtypes" );
+      if (Util.isNullOrEmpty(formerAffiliationSubtypes)) {
+        ProvisioningPlan.AttributeRequest formerSubtypeAttr = new ProvisioningPlan.AttributeRequest();
+        formerSubtypeAttr.setOperation( ProvisioningPlan.Operation.Set );
+        formerSubtypeAttr.setName( "formerAffiliationSubtypes" );
+        formerSubtypeAttr.setValue( privilegedIdentity.getAttribute( "currentAffiliationSubtypes" ) );
+        acr.add( formerSubtypeAttr );
+      }
+      
+      ProvisioningPlan.AttributeRequest currentSubtypeAttr = new ProvisioningPlan.AttributeRequest();
+      currentSubtypeAttr.setOperation( ProvisioningPlan.Operation.Set );
+      currentSubtypeAttr.setName( "currentAffiliationSubtypes" );
+      currentSubtypeAttr.setValue( "" );
+      acr.add( currentSubtypeAttr );
+      
+      String formerAffiliations = privilegedIdentity.getAttribute( "formerAffiliations" );
+      if (Util.isNullOrEmpty(formerAffiliations)) {
+        ProvisioningPlan.AttributeRequest formerAffiliationAttr = new ProvisioningPlan.AttributeRequest();
+        formerAffiliationAttr.setOperation( ProvisioningPlan.Operation.Set );
+        formerAffiliationAttr.setName( "formerAffiliations" );
+        formerAffiliationAttr.setValue(privilegedIdentity.getAttribute( "currentAffiliations" ));
+        acr.add( formerAffiliationAttr );
+      }
+      
+      ProvisioningPlan.AttributeRequest currentAffiliationAttr = new ProvisioningPlan.AttributeRequest();
+      currentAffiliationAttr.setOperation( ProvisioningPlan.Operation.Set );
+      currentAffiliationAttr.setName( "currentAffiliations" );
+      currentAffiliationAttr.setValue( "" );
+      acr.add( currentAffiliationAttr );
+
+      SimpleDateFormat df = new SimpleDateFormat("MM/dd/YYYY");
+      Calendar todayCal = Calendar.getInstance();
+      String todayStr = df.format(todayCal.getTime());
+      
+      // Set netIDExpiration to today only if it was not set before OR there is a security Hold date
+      boolean setExpirationDate = false;
+      Date today = df.parse(todayStr);
+      Date currentNetIdExpiration = null;
+      // get current netIdExpiration
+      String currentNetIdExpirationStr = privilegedIdentity.getAttribute( "netIdExpiration");
+      // also check the security hold data
+      String securityHoldDateStr = privilegedIdentity.getAttribute( "securityHoldDate");
+      if (Util.isNotNullOrEmpty(securityHoldDateStr)) {
+        currentNetIdExpiration = df.parse(securityHoldDateStr);
+        setExpirationDate = true;
+      } else if (Util.isNotNullOrEmpty(currentNetIdExpirationStr)) {
+        currentNetIdExpiration = df.parse(currentNetIdExpirationStr);
+      } else {
+        currentNetIdExpiration = today;
+      }
+      
+      
+      if (currentNetIdExpiration.getTime() > today.getTime()) {
+        log.debug("currentNetIdExpiration is in the future, set it to today");
+        setExpirationDate = true;
+      }
+      
+      if (setExpirationDate) {
+        ProvisioningPlan.AttributeRequest netIdExpirationAttr = new ProvisioningPlan.AttributeRequest();
+        netIdExpirationAttr.setOperation( ProvisioningPlan.Operation.Set );
+        netIdExpirationAttr.setName( "netIdExpiration" );
+        netIdExpirationAttr.setValue( Util.isNotNullOrEmpty(securityHoldDateStr) ? securityHoldDateStr : todayStr );
+        acr.add( netIdExpirationAttr );
+      }
+      
+      ProvisioningPlan.AttributeRequest primaryStatusAttr = new ProvisioningPlan.AttributeRequest();
+      primaryStatusAttr.setOperation( ProvisioningPlan.Operation.Set );
+      primaryStatusAttr.setName( "primaryAffiliationStatus" );
+      primaryStatusAttr.setValue( "former" );
+      acr.add( primaryStatusAttr );
+      // decache
+      context.decache(privilegedIdentity);
+    }
+
+    log.debug("===== Exiting From createPrivilegedAccountIIQPlanUpdateFormer ===== "+ acr);
+    return acr;
+  }
+  
+  
+  </Source>
+</Rule>

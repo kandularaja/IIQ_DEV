@@ -1,0 +1,174 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1706098211392" id="c0a800918d161242818d3b60ba402268" language="beanshell" modified="1706100689897" name="Powershell_COmmand_Execute" type="BeforeProvisioning">
+  <Description>Custom Rule 
+  </Description>
+  <Source>
+  import java.text.SimpleDateFormat;
+  import java.io.BufferedReader;
+  import java.io.IOException;
+  import java.io.InputStream;
+  import java.io.InputStreamReader;
+  import java.lang.*;
+  import org.apache.log4j.Logger;
+  import sailpoint.object.*;
+
+  List userList=new ArrayList();
+  
+  userList.add("Administrator");
+
+ 
+  for(Object obj :userList) {
+
+    try {
+
+      String emp=(String) obj;
+
+      System.out.println("emp value is:"+emp);
+
+
+
+      // PowerShell script with a placeholder for $emp
+
+      String powerShellScriptTemplate = "$empPlaceholder = '%s';" +
+
+        "$user = 'Administrator';" +
+
+        "$Password = ConvertTo-SecureString 'Kandula@500' -AsPlainText -Force;" +
+
+        "$Credential = New-Object System.Management.Automation.PSCredential($user, $Password);" +
+
+        "$domainControllers = Get-ADDomainController -Credential $Credential -Filter *;" +
+
+        "$latestLastLogon = $null;" +
+
+        "$latestDC = '';" +
+
+        "foreach ($dc in $domainControllers) {" +
+
+        "    $lastLogon = Get-ADUser -Identity $empPlaceholder -Server $dc.HostName -Properties LastLogon | Select-Object LastLogon;" +
+
+        "    if ($lastLogon.LastLogon -gt $latestLastLogon) {" +
+
+        "        $latestLastLogon = $lastLogon.LastLogon;" +
+
+        "    }" +
+
+        "};" +
+
+        "$resultObject = $latestLastLogon;" +
+
+        "Write-Host $resultObject;";
+
+      //return powerShellScriptTemplate;
+
+      // Format the PowerShell script with the actual value of $emp
+
+      String formattedScript = String.format(powerShellScriptTemplate, emp);
+
+ System.out.println("formattedScript:::\n"+formattedScript);
+
+      // Build the PowerShell command
+
+      //String command = "powershell.exe -ExecutionPolicy Bypass -Command \"" + powerShellScript + "\"";
+
+      // String command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command " + formattedScript;
+
+      String command = "powershell.exe -ExecutionPolicy Bypass -Command \"" + formattedScript + "\"";
+
+
+      // Execute the PowerShell command
+
+      String[] testArray={"cmd.exe", "/c", command};
+
+      // ProcessBuilder processBuilder = new ProcessBuilder("cmd.exe", "/c", command);
+
+      ProcessBuilder processBuilder = new ProcessBuilder(testArray);
+
+      Process process = processBuilder.start();
+
+      // Read the output
+
+      StringBuilder result = new StringBuilder();
+
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+      String line;
+
+      while ((line = reader.readLine()) != null) {
+        System.out.println("Inside while"+line);
+
+        result.append(line).append("\n");
+
+      }
+
+      // return result.toString().trim();
+
+      String output =result.toString().trim();
+      // return "FFF\n"+output;
+
+      //trying to converto to date formate
+
+      /*
+
+      long DEF_NET =11644473600000L+60*60*1000;
+
+      // long convlastLogon=(Long.parseLong(lastLogon)/10000)-(116444736184100L);
+
+      long adtime=(Long.parseLong(output)/10000)-DEF_NET;
+
+      Date str11=new Date(adtime);
+
+      // System.out.println("lastlogon after convo "+str11);
+
+      SimpleDateFormat sd =new SimpleDateFormat("MM-dd-yyyy");
+
+      String ddate=sd.format(str11);
+
+
+
+      FileWriter writer=new FileWriter("C:\\Users\\Public\\file.txt",true);
+
+
+
+      writer.write(ddate);
+
+      writer.write("\r\n");
+
+
+      writer.close();
+
+*/
+
+
+
+
+
+
+
+      // Wait for the PowerShell process to complete
+
+      int exitCode = process.waitFor();
+
+      System.out.println("PowerShell script execution completed with exit code: " + exitCode);
+      System.out.println("PowerShell script result:\n" + output);
+
+      // Print the captured result
+
+      log.info("PowerShell script result:\n" + output);
+
+    } 
+
+    catch (Exception e) {
+
+      e.printStackTrace();
+      System.out.println("Error:\n" +  e.printStackTrace());
+
+    }
+
+  }
+
+
+
+  </Source>
+</Rule>

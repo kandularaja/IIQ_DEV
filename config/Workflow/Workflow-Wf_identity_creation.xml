@@ -1,0 +1,265 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1713786985805" explicitTransitions="true" id="c0a81db48edf16fe818f05aa1d4d1d8f" name="WF_Identity_Creation">
+  <Variable initializer="true" input="true" name="trace"/>
+  <Variable input="true" name="identityName"/>
+  <Variable input="true" name="plan"/>
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="Generic"/>
+  </Step>
+  <Step icon="Default" name="Generic" posX="98" posY="10">
+    <Approval name="Level_1" owner="sara berry" return="firstName,lastName,manager" send="">
+      <Form name="Level_1">
+        <Attributes>
+          <Map>
+            <entry key="hideIncompleteFields">
+              <value>
+                <Boolean></Boolean>
+              </value>
+            </entry>
+            <entry key="includeHiddenFields">
+              <value>
+                <Boolean></Boolean>
+              </value>
+            </entry>
+            <entry key="pageTitle" value="Level_1"/>
+          </Map>
+        </Attributes>
+        <Section name="Section 1">
+          <Field displayName="FirstName" name="firstName" postBack="true" type="string"/>
+          <Field displayName="LastName" name="lastName" type="string"/>
+          <Field displayName="Manager" name="manager" type="string">
+            <AllowedValuesDefinition>
+              <Script>
+                <Source> import sailpoint.object.*;
+                  Filter myFilter=Filter.eq("links.application.name","AD Target");
+                  QueryOptions qo=new QueryOptions();
+                  qo.addFilter(myFilter);
+                  List l1=new ArrayList();
+                  l1.add("name");
+                  List nameList=new ArrayList();
+                  Iterator names=context.search(Identity.class,qo,l1);
+                  if(null!=names){
+                  while(names.hasNext()){
+                  String name=(String)names.next()[0];
+                  nameList.add(name);
+                  }
+                  }
+                  return nameList;</Source>
+              </Script>
+            </AllowedValuesDefinition>
+          </Field>
+        </Section>
+        <Button action="cancel" label="Cancel"/>
+        <Button action="next" label="Next"/>
+      </Form>
+    </Approval>
+    <Transition to="Generic(1)"/>
+  </Step>
+  <Step icon="Default" name="Generic(1)" posX="224" posY="10">
+    <Approval name="Level_2" owner="james smith" return="firstName,lastName,manager" send="firstName,lastName,manager">
+      <Form name="Level_2">
+        <Attributes>
+          <Map>
+            <entry key="pageTitle" value="Level_2"/>
+          </Map>
+        </Attributes>
+        <Section name="Section 1">
+          <Field displayName="FirstName" dynamic="true" name="firstName" type="string"/>
+          <Field displayName="LastName" dynamic="true" name="lastName" type="string"/>
+          <Field displayName="Manager" dynamic="true" name="manager" type="string">
+            <AllowedValuesDefinition>
+              <Script>
+                <Source> import sailpoint.object.*;
+                  Filter myFilter=Filter.eq("links.application.name","AD Target");
+                  QueryOptions qo=new QueryOptions();
+                  qo.addFilter(myFilter);
+                  List l1=new ArrayList();
+                  l1.add("name");
+                  List nameList=new ArrayList();
+                  Iterator names=context.search(Identity.class,qo,l1);
+                  if(null!=names){
+                  while(names.hasNext()){
+                  String name=(String)names.next()[0];
+                  nameList.add(name);
+                  }
+                  }
+                  return nameList;</Source>
+              </Script>
+            </AllowedValuesDefinition>
+          </Field>
+        </Section>
+        <Button action="next" label="Next"/>
+        <Button action="cancel" label="Cancel"/>
+      </Form>
+    </Approval>
+    <Transition to="Generic(2)"/>
+  </Step>
+  <Step icon="Default" name="Generic(2)" posX="382" posY="10">
+    <Approval name="Level_3" owner="aaron nichols" return="firstName,lastName,manager,userName,email" send="firstName,lastName,manager">
+      <Form name="Level_3">
+        <Attributes>
+          <Map>
+            <entry key="hideIncompleteFields">
+              <value>
+                <Boolean></Boolean>
+              </value>
+            </entry>
+            <entry key="includeHiddenFields">
+              <value>
+                <Boolean></Boolean>
+              </value>
+            </entry>
+            <entry key="pageTitle" value="Level_3"/>
+          </Map>
+        </Attributes>
+        <Section name="Section 1">
+          <Field displayName="FirstName" dynamic="true" name="firstName" type="string"/>
+          <Field displayName="LastName" dynamic="true" name="lastName" type="string"/>
+          <Field displayName="Manager" dynamic="true" name="manager" type="string">
+            <AllowedValuesDefinition>
+              <Script>
+                <Source> import sailpoint.object.*;
+                  Filter myFilter=Filter.eq("links.application.name","AD Target");
+                  QueryOptions qo=new QueryOptions();
+                  qo.addFilter(myFilter);
+                  List l1=new ArrayList();
+                  l1.add("name");
+                  List nameList=new ArrayList();
+                  Iterator names=context.search(Identity.class,qo,l1);
+                  if(null!=names){
+                  while(names.hasNext()){
+                  String name=(String)names.next()[0];
+                  nameList.add(name);
+                  }
+                  }
+                  return nameList;</Source>
+              </Script>
+            </AllowedValuesDefinition>
+          </Field>
+          <Field displayName="UserName" dynamic="true" name="userName" type="string">
+            <Script>
+              <Source>if(firstName !=null &amp;&amp; lastName!=null){
+                return (firstName+"."+lastName);
+                }</Source>
+            </Script>
+          </Field>
+          <Field displayName="Email" dynamic="true" name="email" type="string">
+            <Script>
+              <Source>if(firstName!=null &amp;&amp; lastName!=null){
+                return (firstName+"."+lastName+"@eshiam.com");
+                }</Source>
+            </Script>
+          </Field>
+        </Section>
+        <Button action="cancel" label="Cancel"/>
+        <Button action="next" label="Submit"/>
+      </Form>
+    </Approval>
+    <Transition to="Generic(3)"/>
+  </Step>
+  <Step icon="Default" name="Generic(3)" posX="540" posY="10" resultVariable="plan">
+    <Script>
+      <Source>
+        import sailpoint.object.ProvisioningPlan;
+        import sailpoint.object.ProvisioningPlan.AccountRequest;
+        import sailpoint.object.ProvisioningPlan.AttributeRequest;
+        import sailpoint.object.*;
+
+        import sailpoint.api.Provisioner;
+        import sailpont.api.*;
+
+
+        Identity managerid = context.getObjectByName(Identity.class,manager);
+        ProvisioningPlan plan = new ProvisioningPlan();
+        AccountRequest accreq = new AccountRequest();
+
+        Identity identity = new Identity();
+
+         String fullName = firstName + " "+lastName;
+         log.error("Identity Name si s========== " +fullName);
+        identity.setDisplayName(userName);
+
+        identity.setName(userName);
+        identity.setEmail(email);
+        identity.setFirstname(firstName);
+        identity.setLastname(lastName);
+        identity.setManager(managerid);
+        identity.setPassword("admin@123");
+        context.saveObject(identity);
+        context.commitTransaction();
+        context.decache(identity);
+
+        plan.setIdentity(identity);
+        accreq.setApplication("AD Target");
+
+        accreq.setOperation(AccountRequest.Operation.Create);
+        plan.add(accreq);
+        //Provisioner p = new Provisioner(context);
+       // p.execute(plan);
+
+        return plan;
+        log.error("Identity Successfully Created========");</Source>
+    </Script>
+    <Transition to="LCMProvisioning"/>
+  </Step>
+  <Step icon="Default" name="LCMProvisioning" posX="698" posY="10">
+    <Arg name="identityEmailTemplate"/>
+    <Arg name="enableRetryRequest"/>
+    <Arg name="securityOfficerElectronicSignature"/>
+    <Arg name="fallbackApprover"/>
+    <Arg name="endOnManualWorkItems"/>
+    <Arg name="userEmailTemplate"/>
+    <Arg name="policiesToCheck"/>
+    <Arg name="project"/>
+    <Arg name="workItemComments"/>
+    <Arg name="identityRequestId"/>
+    <Arg name="approvalSplitPoint"/>
+    <Arg name="source"/>
+    <Arg name="identityDisplayName"/>
+    <Arg name="foregroundProvisioning"/>
+    <Arg name="ownerElectronicSignature"/>
+    <Arg name="batchRequestItemId"/>
+    <Arg name="saveUnmanagedPlan_WithProjectArgument"/>
+    <Arg name="splitPlans"/>
+    <Arg name="doRefresh"/>
+    <Arg name="plan" value="ref:plan"/>
+    <Arg name="flow"/>
+    <Arg name="identityElectronicSignature"/>
+    <Arg name="identityName" value="ref:userName"/>
+    <Arg name="approvalSet"/>
+    <Arg name="violationReviewDecision"/>
+    <Arg name="filterRejects"/>
+    <Arg name="splitProjects"/>
+    <Arg name="requireCommentsForDenial"/>
+    <Arg name="requesterEmailTemplate"/>
+    <Arg name="approvalEmailTemplate"/>
+    <Arg name="ticketManagementApplication"/>
+    <Arg name="securityOfficerName"/>
+    <Arg name="approvingIdentities"/>
+    <Arg name="managerEmailTemplate"/>
+    <Arg name="ticketId"/>
+    <Arg name="approvalScheme"/>
+    <Arg name="allowRequestsWithViolations"/>
+    <Arg name="workItemPriority"/>
+    <Arg name="managerElectronicSignature"/>
+    <Arg name="requireViolationReviewComments"/>
+    <Arg name="splitApprovalSet"/>
+    <Arg name="approvalMode"/>
+    <Arg name="trace"/>
+    <Arg name="endOnProvisioningForms"/>
+    <Arg name="splitWorkItemComments"/>
+    <Arg name="requireCommentsForApproval"/>
+    <Arg name="notificationScheme"/>
+    <Arg name="policyViolations"/>
+    <Arg name="policyScheme"/>
+    <Arg name="setPreviousApprovalDecisions"/>
+    <Arg name="optimisticProvisioning"/>
+    <Arg name="securityOfficerEmailTemplate"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" id="c0a81db3874f10c281874fd80f27003e" name="LCM Provisioning"/>
+    </WorkflowRef>
+    <Transition to="Stop"/>
+  </Step>
+  <Step icon="Stop" name="Stop" posX="848" posY="10"/>
+</Workflow>

@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1714644959478" id="c0a8009d8f1918e7818f38cdc0f611a2" language="beanshell" modified="1714646661961" name="Logger4J2_Test_Rule">
+  <Source>
+  import java.util.*;
+  import sailpoint.object.*;
+  import java.util.*;
+  import java.sql.*;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningPlan;;
+  import sailpoint.api.Provisioner;
+  import sailpoint.object.Filter;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.ObjectUtil;
+  import sailpoint.object.WorkGroup;
+  import sailpoint.object.GroupFactory;
+  import sailpoint.object.ManagedAttribute;
+  import sailpoint.object.Application;
+  import sailpoint.object.CustomGlobal;
+  import sailpoint.object.Custom;
+  import java.util.Map;
+  import java.util.List;
+  import sailpoint.integration.JsonUtil;
+  import java.io.*;
+  import java.util.*;
+  import org.json.simple.*;
+  
+   Log log = LogFactory.getLog("americana.ruleLibrary.Attribute");  
+  log.trace("***RUNNING Americana-RuleLibrary-Attribute***");
+
+  </Source>
+</Rule>

@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE EmailTemplate PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<EmailTemplate created="1712751262581" id="c0a800918ebc1a34818ec7ee3b7504fd" modified="1712765194761" name="German-Onboard-Email">
+  <Body>
+    &lt;html>
+    &lt;pre> >>>English version below &lt;&lt;&lt; &lt;/pre>
+    &lt;/br>
+    &lt;p>Liebe/r $name $lastName,&lt;/p>
+    &lt;/br>
+    &lt;p>im Anhang dieser Mail findest du deinen&lt;b>Onboarding Guide&lt;/b>. Darin enthalten sind alle notwendigen Informationen, die du f&amp;#252;r deine Arbeit bei MHP benötigst.&lt;/p>
+    &lt;/br>
+    &lt;p>Bitte nehme dir die Zeit, und lese alle Dokumente aufmerksam sowie sorgfältig durch.&lt;/p>
+    &lt;/br>
+    &lt;p>Am Ende des OnBoarding Guides findest du einige „Good to know“ Punkte, die dir bei auftretenden Herausforderungen Unterstützung bieten können.&lt;/p>
+    &lt;/br>
+    &lt;p>Dein Benutzername ist:$name.$lastName@mhp.com &lt;/p>
+    &lt;/br>
+    &lt;p>Dein Password wirst du in einer separaten Mail erhalten.&lt;/p>
+    &lt;/br>
+    &lt;div style="width: 500px; height: 100px; background-color: #add8e6; border: 2px solid #000;">
+    &lt;p> Bitte verwende keine Umlaute (ä, ü, ö, ß) in deinem Passwort, da diese ggf. zu Problemen bei der Benutzung mancher Infrastrukturdienste wie VPN führen können. &lt;/p>
+    &lt;/div>
+    &lt;/br>
+
+    &lt;ul>
+    &lt;li>Passwortlänge mind. 12 Zeichen&lt;/li>
+    &lt;li>Groß- und Kleinbuchstaben&lt;/li>
+    &lt;li>Zahlen und Sonderzeichen&lt;/li>
+    &lt;/ul>
+    &lt;/br>
+
+    &lt;p>Bitte verwende keine Umlaute (ä, ü, ö, ß) in deinem Passwort, da diese ggf. zu Problemen bei der Benutzung mancher Infrastrukturdienste wie VPN führen können.&lt;/p>
+    &lt;/br>
+
+    &lt;p>Nimm dir für die Wahl deines neuen Kennwortes ausreichend Zeit. Dein Passwort solltest du dir leicht merken können, ohne es notieren zu müssen. Zur Verwaltung von Passwörtern kannst du dir auch KeePass 2 einrichten.&lt;/p>
+    &lt;/br>
+
+    &lt;p>Wir wünschen dir einen guten Start bei MHP und freuen uns auf die Zusammenarbeit mit dir.&lt;/p>
+    &lt;/br>
+
+    &lt;p>Liebe Grüße &lt;/p>
+    &lt;p>Deine MHP IT &lt;/p>
+    &lt;/br>
+
+    &lt;p>MHP Management- und IT-Beratung GmbHMHP Management- und IT-Beratung GmbH
+    Office Ludwigsburg
+    Film- und Medienzentrum
+    Königsallee 49
+    71638 Ludwigsburg
+    Germany&lt;/p>
+    &lt;/br>
+
+    &lt;p>MHP Management- und IT-Beratung GmbH
+    Sitz der Gesellschaft: Ludwigsburg
+    Registergericht: Amtsgericht Stuttgart HRB-Nr. 205571
+    Geschäftsführung: Dr.-Ing. Ralf Hofmann (Vorsitzender) und Marc Zimmermann&lt;/p>
+    &lt;/br>
+
+    &lt;p>Datenschutzhinweise&lt;/p>
+    &lt;/br>
+
+    &lt;p>Die vorgenannten Angaben werden jeder E-Mail automatisch
+    hinzugefügt. Dies ist kein Anerkenntnis, dass es sich beim
+    Inhalt dieser E-Mail um eine rechtsverbindliche Erklärung von
+    MHP Management- und IT-Beratung GmbH handelt. 
+    Erklärungen, die die MHP Management- und IT-Beratung 
+    GmbH verpflichten, bedürfen jeweils der Unterschrift
+    durch zwei zeichnungsberechtigte Personen der GmbH.&lt;/p>
+    &lt;/br>
+    &lt;/html>
+  </Body>
+  <Description>Email notification on BU Change. </Description>
+  <Signature>
+    <Inputs>
+      <Argument name="DisplayName" type="string"/>
+      <Argument name="Title" type="string"/>
+      <Argument name="SamAccountName" type="string"/>
+      <Argument name="Email" type="string"/>
+      <Argument name="Description" type="string"/>
+      <Argument name="OldBE" type="string"/>
+      <Argument name="name" type="string"/>
+      <Argument name="lastNmae" type="string"/>
+    </Inputs>
+  </Signature>
+  <Subject>User is a $Description case from Business Entity $OldBE</Subject>
+</EmailTemplate>

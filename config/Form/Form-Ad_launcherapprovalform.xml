@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1690367811496" id="c0a8010589521a9e818991c5dfa83ac6" modified="1690368374324" name="AD_launcherApprovalForm" type="Workflow">
+  <Attributes>
+    <Map>
+      <entry key="pageTitle" value="launcher form data "/>
+    </Map>
+  </Attributes>
+  <Section label="User Information " name="Section For user Data">
+    <Field displayName="DisplayName" name="name" readOnly="true" value="ref:launcher"/>
+    <Field displayName="Firstname" name="firstname" readOnly="true" type="String">
+      <Script>
+        <Source>
+          import sailpoint.object.Identity;
+
+          System.out.println("Firstname Field Identity Name Checking : "+name);
+          if(null != name &amp;&amp; void != name){
+          Identity  idenObj = context.getObjectByName(Identity.class,name);
+          System.out.println("Firstname Of The Identity  : "+idenObj.getFirstname());
+          return idenObj.getFirstname();
+          }
+          return null;
+        </Source>
+      </Script>
+    </Field>
+    <Field displayName="Lastname" name="lastname" readOnly="true" type="String">
+      <Script>
+        <Source>
+          import sailpoint.object.Identity;
+
+          System.out.println("Lastname Field Identity Name Checking  : "+name);
+          if(null != name &amp;&amp; void != name){
+          Identity  idenObj = context.getObjectByName(Identity.class,name);
+          System.out.println("Lastname Of The Identity  : "+idenObj.getLastname());
+          return idenObj.getLastname();
+          }
+          return null;
+        </Source>
+      </Script>
+    </Field>
+    <Field displayName="Email" name="mail" readOnly="true">
+      <Script>
+        <Source>
+          import sailpoint.object.Identity;
+
+          System.out.println("Firstname Field Identity Name Checking : "+name);
+          if(null != name &amp;&amp; void != name){
+          Identity  idenObj = context.getObjectByName(Identity.class,name);
+          System.out.println("Firstname Of The Identity  : "+idenObj.getEmail());
+          return idenObj.getEmail();
+          }
+          return null;
+        </Source>
+      </Script>
+    </Field>
+  </Section>
+  <Section label="Group Information" name="groupInformation">
+    <Field displayName="MARKET_NAME(s)" filterString="application.name == &quot;Americana-CrunchTime&quot; &amp;&amp; type == &quot;market&quot;" helpKey="select marketgroup(s)" multi="true" name="marketgroup" postBack="true" type="ManagedAttribute"/>
+    <Field displayName="CONCEPT_CODE(s)" filterString="application.name == &quot;Americana-CrunchTime&quot; &amp;&amp; type == &quot;concept&quot;" helpKey="select concept(s)" multi="true" name="concept" postBack="true" type="ManagedAttribute"/>
+    <Field displayName="LOCATION_CODE(s)" filterString="application.name == &quot;Americana-CrunchTime&quot; &amp;&amp; type == &quot;location&quot;" helpKey="select locationgroup(s)" multi="true" name="locationgroup" postBack="true" type="ManagedAttribute"/>
+  </Section>
+  <Button action="back" label="Back"/>
+  <Button action="next" label="Submit"/>
+</Form>

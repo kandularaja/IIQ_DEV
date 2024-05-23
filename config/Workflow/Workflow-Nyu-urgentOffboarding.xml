@@ -1,0 +1,656 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1716192371106" explicitTransitions="true" handler="sailpoint.api.StandardWorkflowHandler" id="c0a800918f941295818f950961a20082" libraries="Identity" modified="1716192446550" name="NYU-Urgent Offboarding" type="Workflow">
+  <Variable name="formModel"/>
+  <Variable name="wfErrorList"/>
+  <Variable name="plan"/>
+  <Variable name="account"/>
+  <Variable input="true" name="identityName">
+    <Description>The name of the identity being updated.</Description>
+  </Variable>
+  <Variable input="true" name="launcher"/>
+  <Variable initializer="true" input="true" name="transient"/>
+  <Step icon="Start" name="Start" posX="20" posY="25">
+    <Transition to="Initialize"/>
+  </Step>
+  <Step name="Initialize" resultVariable="formModel">
+    <Description>Initialize the data in the model.</Description>
+    <Script>
+      <Source>
+        import sailpoint.object.Identity;
+        import java.util.HashMap;
+        import sailpoint.transformer.IdentityTransformer;  
+        import sailpoint.object.*;
+        import sailpoint.api.*;
+        import org.apache.commons.logging.LogFactory;
+        import org.apache.commons.logging.Log;
+
+        String prefix = "Step - Initialize: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding");
+
+        HashMap model = new HashMap();
+        IdentityTransformer transformer = new IdentityTransformer(context);
+        model.put(IdentityTransformer.ATTR_TRANSFORMER_CLASS, transformer.getClass().getName());
+        model.put(IdentityTransformer.ATTR_TRANSFORMER_OPTIONS, "");     
+
+        log.trace(prefix + "name: " + model.get(IdentityTransformer.ATTR_TRANSFORMER_CLASS));
+        log.trace(prefix + "options: " + model.get(IdentityTransformer.ATTR_TRANSFORMER_OPTIONS));
+        log.trace(prefix + "formModel: " + formModel);
+
+        String taskResultName = "Urgent Offboarding - Gathering Details";
+        log.debug(prefix + "Renaming TaskResult to: " + taskResultName); 
+        wfcontext.getWorkflowCase().getTaskResult().setName(taskResultName); 
+        
+        return model;
+      </Source>
+    </Script>
+    <Transition to="Initialize wfErrorList"/>
+  </Step>
+  <Step name="Initialize wfErrorList" resultVariable="wfErrorList">
+    <Description>Initialize the wfErrorList variable.</Description>
+    <Script>
+      <Source>
+        import sailpoint.object.Identity;
+        import java.util.HashMap;
+        import sailpoint.transformer.IdentityTransformer;  
+        import sailpoint.object.*;
+        import sailpoint.api.*;
+        import org.apache.commons.logging.LogFactory;
+        import org.apache.commons.logging.Log;
+
+        String prefix = "Step - Initialize wfErrorList: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding");
+
+        List wfErrorList = new ArrayList();
+        log.debug(prefix + "wfErrorList Initialized to: " + wfErrorList); 
+        
+        return wfErrorList;
+      </Source>
+    </Script>
+    <Transition to="Password For User"/>
+  </Step>
+  <Step icon="Default" name="Password For User" posX="300" posY="20" resultVariable="formModel">
+    <Arg name="formModel" value="ref:formModel"/>
+    <Description>puts temporaryPassword in formModel</Description>
+    <Script>
+      <Source>
+        import sailpoint.api.PasswordGenerator;
+        import sailpoint.object.PasswordPolicy; 
+        import org.apache.commons.logging.LogFactory;
+        import org.apache.commons.logging.Log;
+
+        String prefix = "Step - Password For User: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding");
+        String policyName = "Urgent Offboarding Password Scramble Random Generator";
+        PasswordPolicy policy = context.getObjectByName(PasswordPolicy.class, policyName);
+        String password = new PasswordGenerator(context).generatePassword(policy);
+        formModel.put("temporaryPassword", password);
+
+        log.trace(prefix + "temporaryPassword: " + password);
+        return formModel;
+      </Source>
+    </Script>
+    <Transition to="Request Form"/>
+  </Step>
+  <Step icon="Approval" name="Request Form" posX="230" posY="138">
+    <Approval mode="string:serial" name="Urgent Offboarding Form" owner="script:return launcher;" return="formModel" send="launcher,formModel">
+      <Arg name="formModel" value="ref:formModel"/>
+      <Arg name="workItemType" value="Form"/>
+      <Arg name="workItemFormBasePath" value="formModel"/>
+      <Form name="UrgentOffboarding">
+        <Attributes>
+          <Map>
+            <entry key="pageTitle" value="Urgent Offboarding"/>
+          </Map>
+        </Attributes>
+        <Description>Urgent Offboarding</Description>
+        <Section name="Select Account">
+          <Field columnSpan="1" displayName="Select Account" name="name" postBack="true" required="true" type="identity"/>
+          <Field displayName="Display Name" dynamic="true" name="displayName" required="true" type="string">
+            <Attributes>
+              <Map>
+                <entry key="readOnly" value="true"/>
+              </Map>
+            </Attributes>
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = form.getField("name").getValue();
+                if ((id != null) &amp;&amp; (id != void))
+                {
+                  Identity ident = context.getObjectByName(Identity.class,id);
+                  if (ident != null) {
+                    return ident.getAttribute("displayName");
+                  }
+                }
+                return "";
+              </Source>
+            </Script>
+          </Field>
+          <Field displayName="NetID" dynamic="true" name="netId" required="true" type="string">
+            <Attributes>
+              <Map>
+                <entry key="readOnly" value="true"/>
+              </Map>
+            </Attributes>
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = form.getField("name").getValue();
+                if ((id != null) &amp;&amp; (id != void))
+                {
+                  Identity ident = context.getObjectByName(Identity.class,id);
+                  if (ident != null) {
+                    return ident.getAttribute("netId");
+                  }
+                }
+                return "";
+              </Source>
+            </Script>
+          </Field>
+          <Field displayName="University ID" dynamic="true" name="universityID" required="true" type="string">
+            <Attributes>
+              <Map>
+                <entry key="readOnly" value="true"/>
+              </Map>
+            </Attributes>
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = form.getField("name").getValue();
+                if ((id != null) &amp;&amp; (id != void))
+                {
+                  Identity ident = context.getObjectByName(Identity.class,id);
+                  if (ident != null) {
+                    return ident.getAttribute("universityId");
+                  }
+                }
+                return "";
+              </Source>
+            </Script>
+          </Field>
+          <Field displayName="GUID" dynamic="true" name="guid" required="true" type="string">
+            <Attributes>
+              <Map>
+                <entry key="readOnly" value="true"/>
+              </Map>
+            </Attributes>
+            <Script>
+              <Source>
+                import sailpoint.object.Identity;
+                String id = form.getField("name").getValue();
+                if ((id != null) &amp;&amp; (id != void))
+                {
+                  Identity ident = context.getObjectByName(Identity.class,id);
+                  if (ident != null) {
+                    return ident.getAttribute("guid");
+                  }
+                }
+                return "";
+              </Source>
+            </Script>
+          </Field>
+          <Field columnSpan="1" displayName="Comments" displayType="textarea" name="comments" required="true" type="string">
+            <ValidationScript>
+              <Source>
+                import sailpoint.tools.Message;
+                List messages = new ArrayList();
+                if (value.length() > 450) 
+                {
+                  Message msg = new Message();
+                  msg.setKey("Comments must not contain more than 450 characters.");
+                  messages.add(msg);
+                }
+                return messages;
+              </Source>
+            </ValidationScript>
+          </Field>
+          <Field columnSpan="1" displayName="Requires Shared Google Access?" displayType="radio" name="googleAccess" postBack="true" required="true" type="string">
+            <AllowedValues>
+              <String>Yes</String>
+              <String>No</String>
+            </AllowedValues>
+          </Field>
+          <Field displayName="End Date" hidden="true" name="endDate" type="date">
+            <Attributes>
+              <Map>
+                <entry key="hidden">
+                  <value>
+                    <Script>
+                      <Source>
+                        if ("Yes".equalsIgnoreCase(googleAccess)) {
+                          field.setRequired(true);
+                          field.setHidden(false);
+                        }
+                      </Source>
+                    </Script>
+                  </value>
+                </entry>
+              </Map>
+            </Attributes>
+          </Field>
+          <Field columnSpan="1" displayName="Password" dynamic="true" name="shownTemporaryPassword" readOnly="true" type="string">
+            <Script>
+              <Source>
+                if (googleAccess!= void &amp;&amp; googleAccess!= null)
+                {
+                  if (googleAccess.equals("Yes"))
+                  {   
+                    String temporaryPassword = formModel.get("temporaryPassword");
+                    return temporaryPassword;
+                  }
+                }
+              </Source>
+            </Script>
+          </Field>
+        </Section>
+        <Button action="cancel" label="Cancel"/>
+        <Button action="next" label="Submit"/>
+      </Form>
+    </Approval>
+    <Description>Display the Urgent Offboarding Form to collect information about the individual being urgently offboarded.</Description>
+    <Transition to="Rename Workflow" when="approved"/>
+  </Step>
+  <Step icon="Default" name="Rename Workflow">
+    <Arg name="formModel" value="ref:formModel"/>
+    <Description>Rename the workflow to be Human Readable</Description>
+    <Script>
+      <Source>
+        import sailpoint.object.*;
+        import sailpoint.api.*;
+        import org.apache.commons.logging.LogFactory;
+        import org.apache.commons.logging.Log;
+        import sailpoint.tools.Util;
+          
+        String prefix = "Step - Rename Workflow: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding");
+        log.debug(prefix + "Entering Step: UO Renaming TaskResult"); 
+        
+        String idName = ( formModel.get("name") == null ? null : formModel.get("name") );
+        log.debug(prefix + "Renaming Urgent Offboarding TaskResult: name ["+idName+"]"); 
+        
+        Identity localId = context.getObjectByName(Identity.class,idName);
+        if ( localId != null ) 
+        {
+          String taskResultName = "Urgent Offboarding - " + localId.getDisplayableName()+" ["+localId.getAttribute("netId")+"]";
+          log.debug(prefix + "Renaming TaskResult to: "+taskResultName); 
+          wfcontext.getWorkflowCase().getTaskResult().setName(taskResultName);
+        } else {
+          log.warn(prefix + "Unable to Rename UO TaskResult using name: ["+idName+"]");
+        }
+        
+        log.debug(prefix + "Exiting Step: UO Rename TaskResult");
+      </Source>
+    </Script>
+    <Transition to="Kickoff Urgent Offboarding"/>
+  </Step>
+  <Step name="Kickoff Urgent Offboarding" posX="495" posY="174" resultVariable="account">
+    <Arg name="formModel" value="ref:formModel"/>
+    <Arg name="wfErrorList" value="ref:wfErrorList"/>
+    <Script>
+      <Source>
+        import org.apache.commons.logging.Log;
+        import org.apache.commons.logging.LogFactory;
+        import sailpoint.tools.Util;
+        import javax.faces.application.FacesMessage;
+        import sailpoint.object.Identity;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.api.SailPointFactory;
+        import java.text.SimpleDateFormat;
+        import java.text.ParseException;
+        import java.util.Date;  
+        import sailpoint.object.AuditEvent;
+        import sailpoint.server.Auditor;
+
+        String prefix = "Step - Kickoff Urgent Offboarding: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding"); 
+        log.debug(prefix + "Entering Step: UO Kickoff Urgent Offboarding");
+
+        log.debug(prefix + "Form Model: " + formModel);
+        log.debug(prefix + "Account is: " + formModel.get("name"));
+        
+        SimpleDateFormat df = new SimpleDateFormat("MM/dd/YYYY");
+
+        String secHoldTempAccessEndDate = null;
+        SailPointContext context = SailPointFactory.getCurrentContext();
+        Date endDate = formModel.get("endDate") == null ? null : formModel.get("endDate");
+        log.debug(prefix + "endDate is: " + endDate);
+        if (endDate!=null) {
+          secHoldTempAccessEndDate = df.format(endDate);
+        }
+        log.debug(prefix + "secHoldTempAccessEndDate: " + secHoldTempAccessEndDate);
+
+        String secHoldDate;
+        secHoldDate = df.format(new Date());
+        log.debug(prefix + "secHoldDate: " + secHoldDate);
+
+        Map map = new HashMap();
+        map.put("name", formModel.get("name") == null ? null : formModel.get("name"));
+        map.put("comments", formModel.get("comments") == null ? null : formModel.get("comments"));
+        map.put("googleAccess", formModel.get("googleAccess") == null ? null : formModel.get("googleAccess"));
+        map.put("secHoldDate", secHoldDate);
+        map.put("secHoldTempAccessEndDate", secHoldTempAccessEndDate);
+        map.put("launcher", launcher);
+        log.debug(prefix + "map:" + map);    
+
+        if (identity == null) {
+          throw new GeneralException("Could not find an identity to invoke API call.");
+        }    
+
+        // Does the following:
+        // (1) We record security hold = Y and other info on the identity.
+        // (2) We disable all links except for those in the List "linksToExcludeFromDisable",
+        //      along with those needed for google temp access (if temp access is requested).
+        // (3) If google temp access IS requested, we set Duo status to "bypass" and ensure the link is enabled.
+        //      Otherwise, we set Duo status to "active" and ensure the link is disabled.
+        String result = doOffboard(map);
+        log.debug(prefix + "Urgent Offboarding has been done. result ('null' implies success): " + result);
+        if (Util.isNotNullOrEmpty(result)) {
+          wfErrorList.add("ERROR: " + prefix + result);
+          log.error(prefix + result);
+        }
+
+        AuditEvent ae = new AuditEvent();
+        String loggedInUser = context.getUserName();
+        ae.setSource(loggedInUser);
+        ae.setTarget(formModel.get("netId"));
+        ae.setApplication("IT Security");
+        ae.setAction("Urgent Offboarding");
+        ae.setAttribute("Diaplay Name : ", formModel.get("displayName") == null ? null : formModel.get("displayName"));
+        ae.setAttribute("NetID : ", formModel.get("netId") == null ? null : formModel.get("netId"));
+        ae.setAttribute("University ID : ", formModel.get("universityID") == null ? null : formModel.get("universityID"));
+        ae.setAttribute("Comments : ", formModel.get("comments") == null ? null : formModel.get("comments"));
+        ae.setAttribute("Requires Shared Google Access? ", formModel.get("googleAccess") == null ? null : formModel.get("googleAccess"));
+        context.saveObject(ae);
+        context.commitTransaction();
+
+        log.debug(prefix + "Exiting Step: UO Create");
+        return formModel.get("name");
+      </Source>
+    </Script>
+    <Transition to="Call Attribute Sync Workflow"/>
+  </Step>
+  <Step icon="Default" name="Call Attribute Sync Workflow" posX="214" posY="18">
+    <Arg name="identityName" value="ref:account"/>
+    <Arg name="foregroundProvisioning" value="true"/>
+    <Return name="plan" to="plan"/>
+    <Transition to="Choose the Effective Password"/>
+  </Step>
+  <Step icon="Default" name="Choose the Effective Password" posX="300" posY="20" resultVariable="effectivePassword">
+    <Arg name="formModel" value="ref:formModel"/>
+    <Arg name="wfErrorList" value="ref:wfErrorList"/>
+    <Description>The Effective Password will be either the shorter one displayed on the form, or a longer one we generate here.</Description>
+    <Script>
+      <Source>
+        import org.apache.commons.logging.Log;
+        import org.apache.commons.logging.LogFactory;
+        import sailpoint.api.PasswordGenerator;
+        import sailpoint.object.PasswordPolicy;
+        import sailpoint.tools.Util;
+        
+        String prefix = "Step - Choose the Effective Password: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding"); 
+        log.debug(prefix + "Entering Step: UO Choose the Effective Password");
+        
+        String googleAccessNeeded = formModel.get("googleAccess");
+        String passwordToUse = null;
+        // Check to see if we need to use the known password, or generate a new, unknown one.
+        if ("Yes".equalsIgnoreCase(googleAccessNeeded)) {
+          passwordToUse = formModel.get("temporaryPassword");
+        } else {
+          // Create a longer, scrambled password that is unknown.
+          String policyName = "NYU AD/LDAP Password Policy";
+          PasswordPolicy policy = context.getObjectByName(PasswordPolicy.class, policyName);
+          String unkPassword = new PasswordGenerator(context).generatePassword(policy);
+          passwordToUse = unkPassword;
+        }
+        
+        // Check to make sure there is a good password. 
+        if (Util.isNullOrEmpty(passwordToUse)) {
+          log.error(prefix + "Password Scramble returned a null or empty Password.");
+          wfErrorList.add("ERROR: " + prefix + "Password Scramble returned a null or empty Password.");
+          passwordToUse = null;
+        }
+
+        log.debug(prefix + "Exiting Step: UO Choose the Effective Password");
+        
+        return passwordToUse;
+      </Source>
+    </Script>
+    <Transition to="Set Timestamp"/>
+  </Step>
+  <Step name="Set Timestamp" posX="495" posY="174" resultVariable="timeStamp">
+    <Script>
+      <Source>
+        import org.apache.commons.logging.Log;
+        import org.apache.commons.logging.LogFactory;
+        import sailpoint.tools.Util;
+        import sailpoint.object.Identity;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.api.SailPointFactory;
+
+        String prefix = "Step - Set Timestamp: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding"); 
+        log.debug(prefix + "Entering Step: UO Set Timestamp");
+
+        String timeStamp =  Util.dateToString(new Date(), "yyyyMMdd HH.mm.ss");
+        
+        log.debug(prefix + "Exiting Step: UO Set Timestamp");
+        return timeStamp;
+      </Source>
+    </Script>
+    <Transition to="Calculate LDAPStatusOverride"/>
+  </Step>
+  <Step name="Calculate LDAPStatusOverride" posX="495" posY="174" resultVariable="LDAPStatusOverrideValue">
+    <Arg name="formModel" value="ref:formModel"/>
+    <Script>
+      <Source>
+        import org.apache.commons.logging.Log;
+        import org.apache.commons.logging.LogFactory;
+        import sailpoint.tools.Util;
+        import sailpoint.object.Identity;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.api.SailPointFactory;
+
+        String prefix = "Step - Calculate LDAPStatusOverride: ";
+        log.debug(prefix + "Entering Step");
+
+        String googleAccessNeeded = formModel.get("googleAccess");
+        String LDAPStatusOverrideValue = "disable";
+        if ("Yes".equalsIgnoreCase(googleAccessNeeded)) {
+          LDAPStatusOverrideValue = "enable";
+        }
+        
+        log.debug(prefix + "Exiting Step");
+        return LDAPStatusOverrideValue;
+      </Source>
+    </Script>
+    <Transition to="Call Password Intercept Workflow"/>
+  </Step>
+  <Step icon="Default" name="Call Password Intercept Workflow" posX="214" posY="18">
+    <Arg name="identityName" value="ref:account"/>
+    <Arg name="nativeIdentity" value="ref:account"/>
+    <Arg name="sourceApplication" value="IIQ"/>
+    <Arg name="timestamp" value="ref:timeStamp"/>
+    <Arg name="syncAll" value="false"/>
+    <Arg name="targetApplications" value="LDAP,AD,Radius,Shanghai AD"/>
+    <Arg name="applicationName" value="IIQ"/>
+    <Arg name="scramblePassword" value="true"/>
+    <Arg name="password" value="ref:effectivePassword"/>
+    <Arg name="LDAPStatusOverride" value="ref:LDAPStatusOverrideValue"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" id="c0a81db3874f140081874fc43ac80180" name="Password Intercept"/>
+    </WorkflowRef>
+    <Transition to="Scramble and Suspend Google Account"/>
+  </Step>
+  <Step icon="Default" name="Scramble and Suspend Google Account" posX="214" posY="18">
+    <Arg name="identityName" value="ref:account"/>
+    <Arg name="password" value="ref:effectivePassword"/>
+    <Arg name="formModel" value="ref:formModel"/>
+    <Arg name="wfErrorList" value="ref:wfErrorList"/>
+    <Script>
+      <Source>
+        import sailpoint.api.Provisioner;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.object.Identity;
+        import sailpoint.object.ProvisioningPlan;
+        import sailpoint.object.ProvisioningPlan.AccountRequest;
+        import sailpoint.object.ProvisioningPlan.AccountRequest.Operation;
+        import sailpoint.tools.GeneralException;
+        import sailpoint.api.ObjectUtil;
+        import sailpoint.tools.Util;
+        import sailpoint.api.IdentityService;
+        import sailpoint.object.Application;
+        import sailpoint.object.Link;
+        import java.sql.SQLException;
+        import org.apache.commons.logging.LogFactory;
+        import org.apache.commons.logging.Log;
+        import java.util.Date;
+        import java.text.SimpleDateFormat;
+        import java.util.Calendar;
+        import javax.ws.rs.core.Response;
+        
+        String prefix = "Step - Scramble and Suspend Google Account: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding"); 
+        log.debug(prefix + "Entering Step: UO Scramble and Suspend Google Account"); 
+
+        log.debug(prefix + "effectivePassword: " + effectivePassword); 
+
+        Application googleApp = context.getObjectByName(Application.class, "Google Apps");
+        IdentityService idSvc = new IdentityService(context);
+
+        Identity ident = context.getObjectByName(Identity.class,account);
+        List googleLink = idSvc.getLinks(ident,googleApp);
+        if (googleLink.size() == 1) {
+          if (ident == null) {
+            log.error(prefix + "Cannot find identity " + account);
+            throw new GeneralException("Cannot find identity " + account);
+          }
+
+          boolean isGoogleTempAccess = false;
+          String ga = formModel.get("googleAccess");
+          if (Util.isNotNullOrEmpty(ga)) {
+            if ("yes".equalsIgnoreCase(ga)) {
+              isGoogleTempAccess = true;
+            }
+          }
+          
+          int httpResponseCode = 0;
+          if (!isGoogleTempAccess) {
+            log.debug(prefix + "Google temp access was NOT requested, so we are going to suspend the account");
+            httpResponseCode = changeGooglePasswordAndSuspend(account, password);
+            log.debug(prefix + "httpResponseCode: " + httpResponseCode);
+            if (httpResponseCode!=200) {
+              String errStr = "ERROR: " + prefix + "Received httpResponseCode: " + httpResponseCode + " while trying to scramble and suspend the user.";
+              wfErrorList.add(errStr);
+              log.error(prefix + errStr);
+            } else {
+              log.info(prefix + "Successfully scrambled and suspended the user's Google Account.  It may take up to 60 seconds for Google API to fully commit the changes");
+            }
+          } else {
+            log.debug(prefix + "Google temp access WAS requested, so we are NOT going to suspend the account");
+            // Enable, lift suspension or disablement on account, if necessary
+            log.warn(prefix + "Google temp access WAS requested, but Google was discovered to be disabled or suspended");
+            log.info(prefix + "We are going to scramble the user and lift the suspension.");
+            httpResponseCode = changeGooglePasswordAndLiftSuspension(account, password);
+            log.info(prefix + "httpResponseCode: " + httpResponseCode);
+            if (httpResponseCode!=200) {
+              String errStr = "ERROR: " + prefix + "Received httpResponseCode: " + httpResponseCode + " while trying to scramble and lift the user's suspension";
+              wfErrorList.add(errStr);
+              log.error(prefix + errStr);
+            } else {
+              log.info(prefix + "Successfully scrambled the user and lifted the suspension (if applicable).  It may take up to 60 seconds for Google API to fully commit the changes");
+            }
+          }
+        } else {
+          log.warn(prefix + "Zero or multiple Google Links were found on the identity");
+        }
+        
+        log.debug(prefix + "Exiting Step: UO Scramble and Suspend Google Account");
+      </Source>
+    </Script>
+    <Transition to="Validate privileged account type"/>
+  </Step>
+  <Step action="script:validatePrivilegedAccount(context,identityName)" icon="Task" name="Validate privileged account type" resultVariable="isPrivilegedaccount">
+    <Arg name="identityName" value="ref:account"/>
+    <Description>Checking if it's a privileged account type</Description>
+    <Transition to="Build and Execute Privileged Account Plan" when="isPrivilegedaccount == true"/>
+    <Transition to="Report Result"/>
+  </Step>
+  <Step action="script:createDisablePlanForPrivilegedAccount(context,formModel,false)" icon="Task" name="Build and Execute Privileged Account Plan">
+    <Arg name="formModel" value="ref:formModel"/>
+    <Description>Build and executed plan to update IIQ to former status</Description>
+    <Transition to="Report Result"/>
+  </Step>
+  <Step catches="complete" name="Report Result">
+    <Arg name="wfErrorList" value="ref:wfErrorList"/>
+    <Script>
+      <Source>
+        import java.util.ArrayList;
+        import java.util.Iterator;
+        import sailpoint.object.Workflow;
+        import sailpoint.object.WorkflowLaunch;
+        import sailpoint.api.Workflower;
+        import java.util.HashMap;
+        import java.util.Map;
+        import sailpoint.object.Identity;
+        import sailpoint.tools.Message;
+        import org.apache.commons.logging.LogFactory;
+        import org.apache.commons.logging.Log;
+
+        String prefix = "Step - Report Result: ";
+        Log log = LogFactory.getLog("edu.nyu.Workflow.UrgentOffboarding");
+        log.debug(prefix + "Entering Step: UO Report Result");
+
+        // Check for errors originating from the workflow itself, or the wfcase
+        String returnMsg = "";
+
+        // Check for errors originating from the workflow itself
+        if (wfErrorList!=null &amp;&amp; wfErrorList.size()>0) {
+          for (int i=0; i&lt;wfErrorList.size(); i++) {
+            String currStr = wfErrorList.get(i).toString();
+            log.error(prefix + "Workflow Error #" + i + ": " + currStr);
+            if (!currStr.contains("ClassCastException")) {
+              returnMsg += currStr + "; ";
+            } else {
+              log.warn(prefix + "Swallowing Workflow Error #" + i + " because it is a known issue (of unkown cause) that is unrelated to this process. Error is: " + currStr);
+            }
+          }
+        }
+
+        // Check for errors originating from the wfcase
+        log.debug(prefix + "wfcase** " + wfcase);
+        ArrayList messages = wfcase.getMessages();
+        log.debug("messages** " + messages);
+        if (messages!=null &amp;&amp; messages.size()>0) {
+          for (int i=0; i&lt;messages.size(); i++) {
+            String currStr = messages.get(i).toString();
+            log.error(prefix + "WorkflowCase Error #" + i + ": " + currStr);
+            if (!currStr.contains("ClassCastException")) {
+              returnMsg += currStr + "; ";
+            } else {
+              log.warn(prefix + "Swallowing Workflow Error #" + i + " because it is a known issue (of unkown cause) that is unrelated to this process.  Error is: " + currStr);
+            }
+          }
+        }
+
+        // Report Results
+        Identity id = context.getObjectByName(Identity.class, account);
+        if (Util.isNullOrEmpty(returnMsg)) {
+          Identity m = context.getObject(Identity.class,launcher);
+          Message msg = Message.info("Successfully Offboarded " + id.getDisplayName(), new Object[0]);
+          idwupeNotify(m, msg, false);
+          log.info(prefix + "Exiting Step: UO Report Result with success");
+          return;
+        } else {
+          Identity m = context.getObject(Identity.class,launcher);
+          Message msg = Message.error("Failed to offboard " + id.getDisplayName() + ".  Error: " + returnMsg, new Object[0]);
+          idwupeNotify(m, msg, false);
+          log.error(prefix + "Exiting Step: UO Report Result with failure");
+        }
+      </Source>
+    </Script>
+    <Transition to="end"/>
+  </Step>
+  <Step icon="Stop" name="end" posX="687" posY="9"/>
+</Workflow>

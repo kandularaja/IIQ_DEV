@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger created="1688550838476" disabled="true" handler="sailpoint.api.WorkflowTriggerHandler" id="c0a81db3892413f08189257910cc13d7" modified="1705484981640" name="Native Change Certification for Amcfrunch" type="NativeChange">
+  <Owner>
+    <Reference class="sailpoint.object.Identity" id="c0a81db3874f140081874fc432ae00ec" name="spadmin"/>
+  </Owner>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="businessProcess"/>
+        <entry key="workflow" value="Lifecycle Event - Joiner"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+  <Selector>
+    <IdentitySelector>
+      <CompoundFilter>
+        <Applications>
+          <Reference class="sailpoint.object.Application" id="c0a8009d8f1918e7818f19c07bcb0118" name="AD-Application"/>
+        </Applications>
+        <CompositeFilter operation="AND">
+          <Filter operation="EQ" property="department" value="Accounting"/>
+          <Filter matchMode="ANYWHERE" operation="CONTAINS_ALL" property="0:groupmbr" value="PayrollAnalysis"/>
+        </CompositeFilter>
+      </CompoundFilter>
+    </IdentitySelector>
+  </Selector>
+</IdentityTrigger>

@@ -1,0 +1,176 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1703046731962" handler="sailpoint.api.StandardWorkflowHandler" id="c0a800918c7b1d9e818c857ed8ba050a" libraries="Identity,BatchRequest" modified="1703057549942" name="Test_Workflow_IIQ_Group Aggregation" taskType="LCM" type="LCMIdentity">
+  <Variable input="true" name="launcher"/>
+  <Variable initializer="true" name="transient"/>
+  <Variable initializer="true" name="trace"/>
+  <Variable name="Entitlements"/>
+  <Variable name="application"/>
+  <Variable name="attribute"/>
+  <Variable initializer="false" name="aggregationStatus"/>
+  <Variable initializer="true" name="trace"/>
+  <Variable name="groupRefreshRule"/>
+  <RuleLibraries>
+    <Reference class="sailpoint.object.Rule" id="c0a81db3874f140081874fc438a1016f" name="Approval Library"/>
+    <Reference class="sailpoint.object.Rule" id="c0a81db3874f140081874fc43ae80182" name="LCM Workflow Library"/>
+  </RuleLibraries>
+  <Step icon="Start" name="Start" posX="14" posY="12">
+    <Transition to="Show Group Selection Form"/>
+  </Step>
+  <Step name="Show Group Selection Form">
+    <Approval name="Select Groups to Aggregate" owner="$(launcher)" return="application,Entitlements,attribute,groupRefreshRule" send="application,Entitlements,attribute,groupRefreshRule">
+      <Arg name="workItemType" value="Form"/>
+      <Arg name="workItemForm" value="Test Group Aggregation Details Form"/>
+    </Approval>
+    <Transition to="Aggregate Groups"/>
+  </Step>
+  <Step name="Aggregate Groups" resultVariable="aggregationStatus">
+    <Arg name="appName" value="ref:application"/>
+    <Arg name="attribute" value="ref:attribute"/>
+    <Arg name="Entitlements" value="ref:Entitlements"/>
+    <Arg name="preRefreshRule" value="ref:groupRefreshRule"/>
+    <Script>
+      <Source>
+        import sailpoint.object.ManagedAttribute;
+        import sailpoint.object.Application;  
+        import sailpoint.object.Attributes;  
+        import sailpoint.object.Custom;  
+        import sailpoint.object.Filter;  
+        import sailpoint.object.Identity;  
+        import sailpoint.object.Link;  
+        import sailpoint.object.QueryOptions;  
+        import sailpoint.object.ResourceObject;  
+        import sailpoint.object.TaskResult;  
+        import sailpoint.object.Rule;  
+        import sailpoint.connector.JDBCConnector;  
+        import sailpoint.api.Aggregator;  
+        import sailpoint.connector.Connector;  
+        import org.apache.log4j.Logger;  
+        import org.apache.log4j.Level;  
+        import sailpoint.api.ManagedAttributer;
+
+        // log.setLevel(Level.DEBUG);
+        String errorMessage = "";  
+
+        int totalGroupsAggregated = 0;
+        int totalGroupsSelected = 0;
+
+        Connector appConnector =  null;
+        if(appName != null){
+        Application application = context.getObjectById(Application.class, appName);  
+        System.out.println("Application:"+application);
+
+
+
+        if(application != null)
+        {
+        String appConnName = application.getConnector();  
+        appConnector = sailpoint.connector.ConnectorFactory.getConnector(application, null);  
+        }
+        System.out.println("App COnnector:"+appConnector);
+        if(appConnector != null)
+        if(Entitlements != null &amp;&amp; !Entitlements.isEmpty())
+        {
+        totalGroupsSelected = Entitlements.size();
+        System.out.println("Total groups:"+totalGroupsSelected);
+        for(String accountName : Entitlements)
+        {
+        ResourceObject rObj = null;
+        try
+        {  
+        rObj = (ResourceObject) appConnector.getObject("group", accountName, null);  
+        System.out.println("Resource object:"+rObj);
+        } catch (Exception ex) {}
+
+        if(rObj != null)
+        {
+        Attributes argMap = new Attributes();  
+        argMap.put("accountGroupRefreshRule",preRefreshRule);
+        argMap.put("aggregationType","group");
+        argMap.put("applications",application.getName());
+        System.out.println("Argument MAp:"+argmap);
+        Map grpSchemaMap = new HashMap();
+        List optsList = new ArrayList();
+        optsList.add("group");
+        grpSchemaMap.put(application.getName(),optsList);
+        Attributes attribs = new Attributes(grpSchemaMap);
+        argMap.put("groupSchema",attribs);
+        Aggregator agg = new Aggregator(context, argMap);
+        System.out.println("agg:"+agg);
+        ManagedAttribute mgdAttribute = agg.aggregateGroup(application, rObj); 
+        System.out.println("ManagedAttribute:"+mgdAttribute);
+        if(mgdAttribute != null)
+        {
+        totalGroupsAggregated++;
+        }
+        else
+        {
+        //Create Provision plan with Group object
+        totalGroupsAggregated++;
+        }
+        }
+        }
+        }
+
+        if(totalGroupsAggregated == 0)
+        return "failed";
+        if(totalGroupsSelected > totalGroupsAggregated)
+        return "partial";
+        if(totalGroupsSelected == totalGroupsAggregated)
+        return "success";
+        }
+
+
+      </Source>
+    </Script>
+    <Transition to="Show Status Message"/>
+    <Transition to="end"/>
+  </Step>
+  <Step name="Show Status Message">
+    <Arg name="aggregationStatus" value="ref:aggregationStatus"/>
+    <Script>
+      <Source>
+
+        import sailpoint.tools.Message;
+        import javax.servlet.http.HttpSession;
+        import javax.faces.context.ExternalContext;
+        import javax.faces.context.FacesContext;
+        import sailpoint.web.WorkflowSessionWebUtil;
+        import sailpoint.api.WorkflowSession;
+        if(aggregationStatus!=null)
+        {
+        System.out.println("Entered in Show status Message"+aggregationStatus);
+        Message msg = null;
+        if(aggregationStatus.equalsIgnoreCase("success"))
+        msg = new Message(Message.Type.Info,"Group Aggregation Successfully Completed",new Object[] { });
+        if(aggregationStatus.equalsIgnoreCase("failed"))
+        msg = new Message(Message.Type.Error,"Unable to Complete Aggregation , Unknown error",new Object[] { });
+        if(aggregationStatus.equalsIgnoreCase("partial"))
+        msg = new Message(Message.Type.Warn,"Only few Groups aggregated Successfully",new Object[] { });
+        FacesContext fc= FacesContext.getCurrentInstance();
+        System.out.println("fc :"+fc);
+        if(fc != null){
+        HttpSession session = fc.getExternalContext().getSession(true);
+        if(session != null)
+        {
+        WorkflowSessionWebUtil webUtil = new WorkflowSessionWebUtil(session );
+        System.out.println("webUtil :"+webUtil);
+        if(webUtil != null)
+        {
+        WorkflowSession wfsession = webUtil.getWorkflowSession();
+        System.out.println("wfsession :"+wfsession);
+        if(wfsession != null)
+        {
+       	 wfsession.addReturnMessage(msg);
+        }
+        }
+        }
+        }
+        }
+
+      </Source>
+    </Script>
+    <Transition to="end"/>
+  </Step>
+  <Step icon="Stop" name="end" posX="830" posY="225"/>
+</Workflow>

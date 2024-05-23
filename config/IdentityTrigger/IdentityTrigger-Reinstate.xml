@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger attributeName="inactive" created="1680671769374" disabled="true" handler="sailpoint.api.WorkflowTriggerHandler" id="c0a81db3874f10c281874fd8031e0011" name="Reinstate" newValueFilter="false" oldValueFilter="true" type="AttributeChange">
+  <Description>Re-enable all accounts when a user has been reinstated.</Description>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="workflow" value="Lifecycle Event - Reinstate"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+</IdentityTrigger>

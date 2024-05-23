@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1716270120065" id="c0a800918f991916818f99abbc8000d5" modified="1716290403407" name="Workflowtest12345">
+  <Variable initializer="true" name="trace">
+    <Description>
+      Used for debugging this workflow and when set to true trace
+      will be sent to stdout.
+    </Description>
+  </Variable>
+  <Variable initializer="true" name="st1">
+    <Description>
+      Used for debugging this workflow and when set to true trace
+      will be sent to stdout.
+    </Description>
+  </Variable>
+  <Step icon="Default" name="Generic Step" posX="333" posY="55">
+    <Transition to="Generic Step (1)"/>
+  </Step>
+  <Step icon="Start" name="Start" posX="111" posY="60">
+    <Transition to="Generic Step"/>
+  </Step>
+  <Step icon="Default" name="Generic Step (3)" posX="587" posY="26">
+    <Transition to="Generic Step (2)" when="(st1)"/>
+  </Step>
+  <Step icon="Default" name="Generic Step (2)" posX="496" posY="42">
+    <Transition to="Stop"/>
+  </Step>
+  <Step icon="Default" name="Generic Step (1)" posX="410" posY="49">
+    <Transition to="Generic Step (3)"/>
+  </Step>
+  <Step icon="end" name="Stop" posX="496" posY="42"/>
+</Workflow>

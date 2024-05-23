@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1703062388647" id="c0a800918c7b1d9e818c866dbfa707aa" language="beanshell" modified="1703064286435" name="AD_Group_Creation_Rule" type="BeforeProvisioning">
+  <Description>Custom Rule 
+    1.Create plan for group creation for AD
+    2.Excute plan.
+  
+  </Description>
+  <Source>
+  import sailpoint.object.*;
+  import sailpoint.tools.*;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest; 
+  import sailpoint.object.ProvisioningPlan.Operation;
+  import java.util.*;
+  import sailpoint.tools.*;
+  import sailpoint.object.Filter;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.connector.ConnectorFactory;
+  import sailpoint.object.ManagedAttribute;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.object.Application;
+  import sailpoint.object.EntitlementGroup;
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.*;
+  import sailpoint.object.ProvisioningPlan.ObjectRequest;
+  
+
+  AttributeRequest atrb = new AttributeRequest();
+  Provisioner provisioner = new Provisioner(context);
+   ProvisioningPlan provPlanUser = new ProvisioningPlan();
+  
+  String nativeIdentity="CN=BenefitsAdmin,OU=Groups,OU=Demo,DC=Eshiam,DC=com";
+  String adApplName"AD-Application";
+ // provPlanUser.setNativeIdentity(nativeIdentity);
+ // provPlanUser.setTargetIntegration(adApplName); 
+ 
+   ProvisioningPlan.AttributeRequest attrReq = new ProvisioningPlan.AttributeRequest();
+  attrReq.setValue("ESHIAM\BenefitsAdmin");
+  atrb.setName("memberOf");
+  atrb.setDisplayValue("BenefitsAdmin");
+  
+  ObjectRequest AccReq = new ObjectRequest();
+  AccReq.setApplication(adApplName);
+  AccReq.setNativeIdentity(nativeIdentity);
+  AccReq.setOp(ProvisioningPlan.ObjectOperation.Create);
+   AccReq.setType("group");
+  
+  
+  provPlanUser.add(AccReq);
+  provisioner.execute(provPlanUser);
+  context.commitTransaction(); 
+      provPlanUser.add(AccReq);
+
+  
+  
+  
+  </Source>
+</Rule>

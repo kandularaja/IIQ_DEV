@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE EmailTemplate PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<EmailTemplate created="1683539313362" id="c0a81db387e61fe58187fac342d2073b" modified="1703758505336" name="Transfer-Email">
+  <Body>
+    &lt;html>
+    &lt;body>
+    &lt;div class=WordSection1>
+    &lt;p class=MsoNormal>Dear Team,&lt;/p>
+    &lt;p class=MsoNormal>Kindly make a note that following user is a $Description case from Business Entity $OldBE : &lt;/p>
+    &lt;table class=MsoTableGrid border=1 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none'>
+    &lt;tr>
+    &lt;td width=200 valign=top style='width:120.2pt;border:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>&lt;b>Display Name&lt;/b>&lt;/p>
+    &lt;/td>
+    &lt;td width=551 valign=top style='width:330.6pt;border:solid windowtext 1.0pt;border-left:none;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>$DisplayName&lt;/p>
+    &lt;/td>
+    &lt;/tr>
+    &lt;tr>
+    &lt;td width=200 valign=top style='width:120.2pt;border:solid windowtext 1.0pt;border-top:none;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>&lt;b>Title&lt;/b>&lt;/p>
+    &lt;/td>
+    &lt;td width=551 valign=top style='width:330.6pt;border-top:none;border-left:none;border-bottom:solid windowtext 1.0pt;border-right:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>$Title&lt;/p>
+    &lt;/td>
+    &lt;/tr>
+    &lt;tr>
+    &lt;td width=200 valign=top style='width:120.2pt;border:solid windowtext 1.0pt;border-top:none;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>&lt;b>New Business Entity&lt;/b>&lt;/p>
+    &lt;/td>
+    &lt;td width=551 valign=top style='width:330.6pt;border-top:none;border-left:none;border-bottom:solid windowtext 1.0pt;border-right:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>$Company&lt;/p>
+    &lt;/td>
+    &lt;/tr>
+    &lt;tr>
+    &lt;td width=200 valign=top style='width:120.2pt;border:solid windowtext 1.0pt;border-top:none;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>&lt;b>User Account&lt;/b>&lt;/p>
+    &lt;/td>
+    &lt;td width=551 valign=top style='width:330.6pt;border-top:none;border-left:none;border-bottom:solid windowtext 1.0pt;border-right:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>$SamAccountName&lt;/p>
+    &lt;/td>
+    &lt;/tr>
+    &lt;tr>
+    &lt;td width=200 valign=top style='width:120.2pt;border:solid windowtext 1.0pt;border-top:none;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>&lt;b>Email Address&lt;/b>&lt;/p>
+    &lt;/td>
+    &lt;td width=551 valign=top style='width:330.6pt;border-top:none;border-left:none;border-bottom:solid windowtext 1.0pt;border-right:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt;line-height:normal'>$Email&lt;/p>
+    &lt;/td>
+    &lt;/tr>
+    &lt;/table>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt'> &lt;/p>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt'>Thanks,&lt;/p>
+    &lt;p class=MsoNormal style='margin-bottom:0cm;margin-bottom:.0001pt'>ESHIAM IT&lt;/p>
+    &lt;/div>
+    &lt;/body>
+    &lt;/html>
+  </Body>
+  <Description>Email notification on BU Change. </Description>
+  <Signature>
+    <Inputs>
+      <Argument name="DisplayName" type="string"/>
+      <Argument name="Title" type="string"/>
+      <Argument name="SamAccountName" type="string"/>
+      <Argument name="Email" type="string"/>
+      <Argument name="Description" type="string"/>
+      <Argument name="OldBE" type="string"/>
+    </Inputs>
+  </Signature>
+  <Subject>User is a $Description case from Business Entity $OldBE</Subject>
+</EmailTemplate>

@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Custom PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Custom created="1692890212484" id="c0a81db389fc1183818a281ea8841cae" modified="1693197981133" name="Custom Object Test">
+  <Attributes>
+    <Map>
+      <entry key="someKey1" value="someValue1"/>
+      <entry key="someKey2" value="someValue2"/>
+      <entry key="someKey3" value="someValue3"/>
+      <entry key="someKey4" value="someValue4"/>
+      <entry key="someKey5" value="someValue5"/>
+    </Map>
+  </Attributes>
+</Custom>

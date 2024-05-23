@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1701408224470" id="c0a81db38c1a15cd818c23d534d60c0d" modified="1701409958029" name="AD Group Entitlement Create" type="Workflow">
+  <Section columns="2" label="Entitlements" name="customProperties">
+    <Field displayName="Application" name="application" postBack="true" type="Application"/>
+    <Field displayName="Entitlement Type" displayType="text" helpKey="Enter Entitlement Type" name="Entitlement Type"/>
+    <Field displayName="Entitlement Name " displayType="text" helpKey="Enter Entitlement Name" name="Entitlement Name"/>
+    <Field displayName="Entitlement Value " displayType="text" helpKey="Enter Entitlement Value" name="Entitlement Value"/>
+    <Field displayName="Entitlement Display Value " displayType="text" helpKey="Enter Entitlement Display Value" name="Entitlement Display Value"/>
+    <Field displayName="CN" displayType="text" helpKey="Enter CN Deatils" name="CN"/>
+    <Field displayName="Requestable" displayType="comboBox" name="requstable" type="boolean"/>
+    <Button action="next" label="Submit"/>
+    <Button action="cancel" label="Cancel"/>
+  </Section>
+</Form>

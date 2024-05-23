@@ -1,0 +1,1592 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1716192589586" id="c0a800918f941295818f950cb7120086" language="beanshell" name="NYU-RuleLibrary-StandardOffboarding">
+  <Description>
+    This RuleLibrary contains all the functions for use with the Standard Offboarding of a 
+    user with the "former" primaryAffiliation, which denoted they no longer have active accounts. 
+  </Description>
+  <Source>
+  import java.util.Random;
+  import java.util.ArrayList;
+  import java.util.List;
+  import java.util.Map; 
+  import java.util.HashMap;
+  import sailpoint.object.Bundle;
+  import java.text.SimpleDateFormat;
+  import java.text.ParseException;
+  import java.util.Date;	
+  import java.util.*;
+  import sailpoint.object.*;
+  import sailpoint.tools.*;
+  import sailpoint.api.*;
+  import sailpoint.connector.*;
+  import org.apache.commons.logging.Log;
+  import org.apache.commons.logging.LogFactory;
+  import sailpoint.object.Attributes;
+  import sailpoint.object.Custom;
+  import sailpoint.object.Filter;
+  import sailpoint.object.Identity;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.plugin.PluginBaseHelper;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+  import sailpoint.api.Identitizer;
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.Provisioner;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.api.TaskManager;
+  import sailpoint.integration.Util;
+  import sailpoint.object.Application;
+  import sailpoint.object.Link;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningPlan.AccountRequest.Operation;
+  import sailpoint.object.*;
+  import sailpoint.workflow.StandardWorkflowHandler;
+  import sailpoint.workflow.WorkflowContext;
+  import sailpoint.api.RequestManager;
+  import sailpoint.connector.Connector;  
+  import sailpoint.object.ResourceObject; 
+  import sailpoint.tools.Message;
+  import java.lang.StringBuilder;
+
+
+  /*******************************************************************************
+   *
+   *                        Standard OffBoarding Methods
+   *******************************************************************************/
+  
+  static Log log = LogFactory.getLog("nyu.rules.NYU-RuleLibrary-StandardOffboarding");
+  
+  /*******************************************************************************
+   *
+   *                        Standard OffBoarding Lists
+   *******************************************************************************/
+  //This list is the application that will be disabled from this. Additional Applications may be handled by LDAP Entitlements. If adding an application,
+  // make sure to add it to the "Applications to Roles Mapping" Custom object, and to the Exception Role List below. 
+  List includedAppsToDisable = new ArrayList(Arrays.asList("LDAP", "AD", "Shanghai AD", "Radius", "Duo", "Box") );
+  List includedAppsToScramble = new ArrayList(Arrays.asList("LDAP", "AD", "Shanghai AD", "Radius", "Google Apps") );
+  List appExceptionRoles = new ArrayList(Arrays.asList("LDAP Grant Access Exception", "AD Grant Access Exception", "Shanghai AD Grant Access Exception", "Radius Grant Access Exception", "Duo Grant Access Exception", "LMS Grant Access Exception","Google Grant Access Exception") );
+
+  /*****************************************************************************
+   *               Accessor Functions
+   ******************************************************************************/
+  List getAppListToDisable()
+  {
+    return includedAppsToDisable;
+  }
+  
+  List getAppExceptionRoleList()
+  {
+    return appExceptionRoles;
+  }
+  
+  List getAppListToScramble()
+  {
+    return includedAppsToScramble;
+  }
+
+
+  /********************************************************************************
+   *        Utility Methods 
+   *
+   ********************************************************************************/  
+  
+  void addErrorMessageToWorkflow(String errMsg)
+  {
+    workflow.put("errorMsg",errMsg); 
+    
+    TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+    if (tr != null &amp;&amp; tr != void){
+      tr.addMessage(new Message(Message.Type.Error, errMsg, null));
+      tr.addAttribute("errorMsg",errMsg);
+      context.saveObject(tr);
+    }
+  }
+  
+  void addWarningMessageToWorkflow(String warnMsg)
+  {
+    workflow.put("warnMsg",warnMsg); 
+    
+    TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+    if (tr != null &amp;&amp; tr != void){
+      tr.addMessage(new Message(Message.Type.Warning, warnMsg, null));
+      tr.addAttribute("warnMsg",warnMsg);
+      context.saveObject(tr);
+    }
+  }
+  
+  /********************************************************************************
+   *        Audit Methods ---> To Create Success,Skip and Failure Methods
+   *
+   *********************************************************************************/
+
+  public void successAuditAction(String action, String source, String target, String disabledApps, String value, String removedLDAPents) {
+    AuditEvent event = new AuditEvent();
+    event.setAction(action);
+    event.setSource(source);
+    event.setTarget(target);
+    event.setApplication("IIQ");
+    event.setAttribute("User NetId :",target);
+     
+    if (removedLDAPents != null) {
+      event.setAttribute("Removed LDAP Entitlements :",removedLDAPents);
+    }
+    if (disabledApps != null) {
+      event.setAttribute("Disabled Application :",disabledApps);
+    } else {
+      event.setAttribute("Disabled Application :","None All Applications Are Already Disabled");
+    }
+    event.setAttribute("Success Message :",value);
+    
+    context.saveObject(event);
+    context.commitTransaction();
+    context.decache(event);
+  }
+  
+  public void failureAuditAction(String action, String source, String target, String value) {
+    AuditEvent event = new AuditEvent();
+    event.setAction(action);
+    event.setSource(source);
+    event.setTarget(target);
+    event.setApplication("IIQ");
+    event.setAttribute("Failure Reason :", value);
+    
+    context.saveObject(event);
+    context.commitTransaction();
+    context.decache(event);
+  }
+  
+  public void skipOffboardingAuditEvent(String identityName) {
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity != null) {
+      AuditEvent event = new AuditEvent();
+      event.setAction("StandardOffboarding Skip Event");
+      event.setSource("StandardOffboarding");
+      event.setTarget(identity.getAttribute("netId"));
+      event.setApplication("IIQ");
+      event.setAttribute("Skip Reason :", "The User Has Exception Role");
+      
+      context.saveObject(event);
+      context.commitTransaction();
+      context.decache(event);
+    }
+  }
+  
+  public void unknownAuditAction(String action, String source, String target, String value) {
+    AuditEvent event = new AuditEvent();
+    event.setAction(action);
+    event.setSource(source);
+    event.setTarget(target);
+    event.setApplication("IIQ");
+    event.setAttribute("Failure Reason :", value);
+    
+    context.saveObject(event);
+    context.commitTransaction();
+    context.decache(event);
+  }
+  
+  public void createOffboardingSuccessAE(String action, String source, String target, String disabledApps, String value, String removedLDAPents, String removedExceptionRoles, boolean skipProvisioning) 
+  {
+    Map attrs = new HashMap();
+    
+    attrs.put("User NetId :",target);
+     
+    if (removedLDAPents != null) {
+      attrs.put("Removed LDAP Entitlements :", removedLDAPents);
+    }
+    if (removedExceptionRoles != null) {
+      attrs.put("Removed Exception Roles :", removedExceptionRoles);
+    }
+    if (disabledApps != null) {
+      attrs.put("Disabled Application :", disabledApps);
+    } else {
+      attrs.put("Disabled Application :", "None All Applications Are Already Disabled");
+    }
+    attrs.put("Success Message :", value);
+    //addDebugAttribute("AuditFunction","createOffboardingSuccessAE" );
+    createOffboardingAuditAction(action, "IIQ", source, target, attrs, skipProvisioning );
+  }
+  
+  public void createOffboardingFailureAE(String action, String source, String target, String value, boolean skipProvisioning) 
+  {
+    Map attrs = new HashMap();
+      
+    attrs.put("Failure Reason :", value);
+    if ( null != errorMsg &amp;&amp; void != errorMsg ) attrs.put("errorMsg: ", errorMsg);
+    if ( null != warnMsg &amp;&amp; void != warnMsg )  attrs.put("warnMsg: ", warnMsg);
+    if ( null != successMsg &amp;&amp; void != successMsg ) attrs.put("successMsg: ", successMsg);
+    //addDebugAttribute("AuditFunction","createOffboardingFailureAE" );
+    
+    createOffboardingAuditAction(action, "IIQ", source, target, attrs, skipProvisioning );
+  }
+  
+  public void createOffboardingSkipAE(String identityName, String skipReason, boolean skipProvisioning) 
+  {
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity != null) {
+      Map attrs = new HashMap();
+
+      String defSkipReason = "The User Has Exception Role";
+      attrs.put("Skip Reason :", skipReason);
+      //addDebugAttribute("AuditFunction","createOffboardingSkipAE" );
+      createOffboardingAuditAction("StandardOffboarding Skip Event", "IIQ", "StandardOffboarding", identity.getAttribute("netId"), attrs, skipProvisioning );
+    }
+  }
+  
+  public void createOffboardingUnknownAE(String identityName, boolean skipProvisioning) 
+  {
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity != null) {
+      Map attrs = new HashMap();
+      
+      attrs.put("Unknown Reason :", "The User Has gotten here for an Unknown Reason");
+      //addDebugAttribute("AuditFunction","createOffboardingUnknownAE" );
+      createOffboardingAuditAction("StandardOffboarding Unknown Event", "IIQ", "StandardOffboarding", identity.getAttribute("netId"), attrs, skipProvisioning );
+    }
+  }
+  
+  public void createOffboardingUnknownNonFailAE(String identityName, boolean skipProvisioning) 
+  {
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity != null) {
+      Map attrs = new HashMap();
+      
+      attrs.put("Unknown Reason :", "The User Has gotten here for an Unknown Non-Failure Reason");
+      //addDebugAttribute("AuditFunction","createOffboardingUnknownNonFailAE" );
+      createOffboardingAuditAction("StandardOffboarding Unknown NonFail Event", "IIQ", "StandardOffboarding", identity.getAttribute("netId"), attrs, skipProvisioning );
+    }
+  }
+  
+  public void createOffboardingAuditAction(String action, String appName, String source, String target, Map auditAttrs, boolean testingMode) 
+  {
+    AuditEvent event = new AuditEvent();
+    
+    // Check to see if this was run in a test mode. 
+    String testingStr = "";
+    if ( testingMode ) testingStr = " - TESTING";
+      
+    event.setAction(action + testingStr);
+    event.setSource(source);
+    event.setTarget(target);
+    event.setApplication("IIQ");
+    if (auditAttrs != null) {
+      for (Map.Entry attr : auditAttrs.entrySet() )
+      {
+        event.setAttribute( attr.getKey(), attr.getValue() );
+      }
+    }
+    
+    context.saveObject(event);
+    context.commitTransaction();
+    context.decache(event);
+  }
+  
+  public void debugFunction( String functionName )
+  {
+    //addDebugAttribute("FunctionName",functionName );
+  }
+   
+  public void addDebugAttribute( String attrName, String attrValue )
+  {
+    TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+    if (tr != null &amp;&amp; tr != void) {
+      tr.addAttribute(attrName,attrValue);
+      tr.addMessage(attrName+" : "+attrValue);
+    }
+  }
+
+
+  /*****************************************************************************
+   * generateRemoveRoleRequestByName - removed the role passed in by the String Name
+   *
+   ******************************************************************************/   
+  public AttributeRequest generateRemoveRoleRequestByName(String roleVal) 
+  {
+    if ( Util.isNotNullOrEmpty(roleVal) )
+    {
+      
+      /*
+      Bundle bRole = context.getObjectByName(Bundle.class, roleVal);
+      if ( null != bRole )
+      {
+        return generateRemoveRoleRequest( bRole ); 
+      } else {
+        log.debug("Role not found for RoleName passed in: "+ roleVal);
+      }
+      
+      */
+      ProvisioningPlan.AttributeRequest attrReq = new ProvisioningPlan.AttributeRequest();
+      attrReq.setOperation(ProvisioningPlan.Operation.Remove);
+      attrReq.setName("assignedRoles");
+      attrReq.setValue(roleVal);
+      attrReq.setComments("Removing Exception Role: "+roleVal );
+      return attrReq;
+    } else {
+      log.debug("Invalid RoleName passed in: "+ roleVal);
+    }
+      
+    return null;  
+  }
+
+  /*****************************************************************************
+   * generateRemoveRoleRequest - removed the role passed in by the bundle name
+   *
+   ******************************************************************************/  
+  public AttributeRequest generateRemoveRoleRequest(Bundle roleVal) 
+  {
+    if ( null != roleVal )
+    {
+      ProvisioningPlan.AttributeRequest attrReq = new ProvisioningPlan.AttributeRequest();
+      attrReq.setOperation(ProvisioningPlan.Operation.Remove);
+      attrReq.setName("assignedRoles");
+      attrReq.setValue(roleVal.getName());
+      attrReq.setComments("Removing Exception Role Bundle: "+roleVal.getName() );
+      return attrReq;
+    }
+    return null;
+  }
+  
+  /*****************************************************************************
+   *     The isIdentityOnLOA to  check the studentLoa of User
+   *
+   * @return boolean - True if the user is on LOA, False otherwise
+   ******************************************************************************/
+  public boolean isIdentityOnLOA(SailPointContext context,String identityName) throws GeneralException {
+    log.debug("===== Entered In isIdentityOnLOA ===== "+ identityName);
+    debugFunction("isIdentityOnLOA");
+    
+    boolean userIsOnLOA = false;
+    // Set these to Null to initialize them
+    String errorMsg = null;
+    String successMsg = null;
+    workflow.put("successMsg",successMsg);
+    workflow.put("errorMsg",errorMsg);
+    
+    
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity == null) {
+      errorMsg = "Identity not found in the System: "+identityName;
+      addErrorMessageToWorkflow(errorMsg);
+      workflow.put("netId",identityName);
+      return userIsOnLOA;
+    }
+    
+    String studentLoa = identity.getAttribute("studentLoa");
+    if ( Util.isNotNullOrEmpty(studentLoa)) {
+      if ( !"Y".equalsIgnoreCase(studentLoa)) {
+        successMsg = "Identity is not On LOA : "+identity.getAttribute("netId") +" identity is a : "+studentLoa;
+      } else {
+        // User is on LOA.
+        userIsOnLOA = true;
+      }
+    } // End null check.
+    
+    
+    TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+          if (tr != null &amp;&amp; tr != void) {
+            tr.addAttribute("userIsOnLOA",userIsOnLOA);
+          }
+          
+    debugFunction("isIdentityOnLOA: Exiting with "+userIsOnLOA +" | "+clearExceptionRoles+" | "+googleAccess+" | "+successMsg+" | "+errorMsg);
+    workflow.put("netId",identity.getAttribute("netId"));
+    log.debug("===== Exiting From isIdentityOnLOA ===== "+ identityName);
+    return userIsOnLOA;
+  }
+  
+  /*****************************************************************************
+  *     The isPrivilegedAccount to  check the type of User
+  *
+  * @return boolean - True if the user is privileged account type, False otherwise
+  ******************************************************************************/
+  public boolean isPrivilegedAccount(SailPointContext context,String identityName) throws GeneralException {
+    log.debug("===== Entered In isPrivilegedAccount ===== "+ identityName);
+    debugFunction("isPrivilegedAccount");
+
+    List privilegedAccountTypes = new ArrayList(Arrays.asList("nyu_ad_administrator_account", "nyu_ad_service_account", "nyu_special_account", "nyu_test_account"));
+    
+    boolean isPrivilegedaccount = false;
+    // Set these to Null to initialize them
+    String errorMsg = null;
+    String successMsg = null;
+    workflow.put("successMsg",successMsg);
+    workflow.put("errorMsg",errorMsg);
+    
+    
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity == null) {
+      errorMsg = "Identity not found in the System: "+identityName;
+      addErrorMessageToWorkflow(errorMsg);
+      workflow.put("netId",identityName);
+      return userIsFormer;
+    }
+    
+    String type = identity.getAttribute("type");
+    if ( Util.isNotNullOrEmpty(type) &amp;&amp; privilegedAccountTypes.contains(type)) {
+      isPrivilegedaccount = true;
+    } else if ( Util.isNullOrEmpty(type) ) {
+      errorMsg = "Identity has no type: "+identity.getAttribute("netId");
+      addErrorMessageToWorkflow(errorMsg);
+    }
+    
+    String privilegedNetId = identity.getAttribute("netId");
+    if (privilegedNetId != null) {
+      workflow.put("adAdminNetID", privilegedNetId);
+          
+      TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+      if (tr != null &amp;&amp; tr != void) {
+        tr.addAttribute("adAdminNetID",privilegedNetId);
+      }
+    }
+    context.decache(identity);
+    
+    workflow.put("netId", privilegedNetId);
+    log.debug("===== Exiting From isPrivilegedAccount ===== "+ isPrivilegedAccount);
+    return isPrivilegedaccount;
+  }
+  
+  /*****************************************************************************
+  *     The isFormerIdentity to  check the primaryAffiliationStatus of User
+  *
+  * @return boolean - True if the user is Former, False otherwise
+  ******************************************************************************/
+  public boolean isFormerIdentity(SailPointContext context,String identityName) throws GeneralException {
+    log.debug("===== Entered In isFormerIdentity ===== "+ identityName);
+    debugFunction("isFormerIdentity");
+    
+    boolean userIsFormer = false;
+    // Set these to Null to initialize them
+    String errorMsg = null;
+    String successMsg = null;
+    workflow.put("successMsg",successMsg);
+    workflow.put("errorMsg",errorMsg);
+    
+    
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity == null) {
+      errorMsg = "Identity not found in the System: "+identityName;
+      addErrorMessageToWorkflow(errorMsg);
+      workflow.put("netId",identityName);
+      return userIsFormer;
+    }
+    
+    String primaryAffStatus = identity.getAttribute("primaryAffiliationStatus");
+    if ( Util.isNotNullOrEmpty(primaryAffStatus) &amp;&amp; !"former".equalsIgnoreCase(primaryAffStatus)) {
+      successMsg = "Identity is not former : "+identity.getAttribute("netId") +" identity is a : "+primaryAffStatus+"  "+identity.getAttribute("primaryAffiliationSubtype");
+    } else if ( Util.isNullOrEmpty(primaryAffStatus) ) {
+      errorMsg = "Identity has no primary affiliation status: "+identity.getAttribute("netId") +" status is: " + primaryAffStatus;
+      addErrorMessageToWorkflow(errorMsg);
+    } else {
+      // User has a Primary Affiliation Status and it is Former.
+      userIsFormer = true;
+    }
+    
+    debugFunction("isFormerIdentity: Exiting with "+userIsFormer +" | "+clearExceptionRoles+" | "+googleAccess+" | "+successMsg+" | "+errorMsg);
+    workflow.put("netId",identity.getAttribute("netId"));
+    log.debug("===== Exiting From isFormerIdentity ===== "+ identityName);
+    return userIsFormer;
+  }
+  
+  /*****************************************************************************
+   *   Check to see if user has any Exception Roles,If he has any skipping the Offboarding and generating a skip Audit Event
+   *
+   ******************************************************************************/
+  public boolean isUserHasAnExceptionRoles(SailPointContext context,String identityName, boolean onlyCheckAppExceptions) {
+    log.debug("===== Entered In isUserHasAnExceptionRoles ===== "+ identityName);
+    debugFunction("isUserHasAnExceptionRoles");
+    boolean hasExceptionRole = false;
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    List userAssignedRoles = identity.getAssignedRoles();
+
+    if (Util.nullSafeSize(userAssignedRoles) > 0) {
+      for (Bundle role : userAssignedRoles) {
+        if ((role != null &amp;&amp; role.getName() != null &amp;&amp; role.getName().contains("Exception")) || (role != null &amp;&amp; role.getDisplayName() != null &amp;&amp; role.getDisplayName().contains("Exception"))) {
+          log.debug("===== The Role Name In isUserHasAnExceptionRoles ===== "+ role.getName());
+          log.debug("===== The Role DisplayName In isUserHasAnExceptionRoles ===== "+ role.getDisplayName());
+          if ( onlyCheckAppExceptions &amp;&amp; !appExceptionRoles.contains(role.getDisplayName()) )
+          {
+            log.debug("Ignoring Exception Role for skipping disable: "+role.getDisplayName());
+          } else {
+          
+            hasExceptionRole = true;
+            workflow.put("netId",identity.getAttribute("netId"));
+            workflow.put("successAuditAction","Skipping StandardOffboarding");
+            workflow.put("successMsg","Skipping StandardOffboarding Because The User has an Exception Role");
+          }
+        }
+      }
+    }
+    log.debug("===== Exiting From isUserHasAnExceptionRoles ===== "+ hasExceptionRole);
+    context.decache(identity);
+    return hasExceptionRole;
+  } // Method isUserHasAnExceptionRoles end....
+
+  /*****************************************************************************
+   *   Check to see if user has security hold = 'Y'
+   *
+   ******************************************************************************/
+  public boolean isSecurityHoldUser(SailPointContext context, String identityName) {
+    log.debug("===== Entered In isSecurityHoldUser ===== "+ identityName);
+    boolean bSecHold = false;
+
+    try {
+      Identity identity = context.getObjectByName(Identity.class,identityName);
+      String secHold = identity.getAttribute("securityHold");
+      if (Util.isNotNullOrEmpty(secHold) &amp;&amp; secHold.equalsIgnoreCase("Y")) {
+        bSecHold = true;
+      }
+      context.decache(identity);
+    } catch (Exception ex) {
+      workflow.put("errorMsg","ERROR Exception - hasSecHold: " + ex.getMessage()); 
+    }
+
+    log.debug("===== Exiting From isSecurityHoldUser ===== "+ bSecHold);
+    return bSecHold;
+  }
+  
+  /*****************************************************************************
+  * Check to See If User has AD Admin Account 
+  *
+  ******************************************************************************/
+  public boolean isUserHasADAdminAccount(SailPointContext context,String identityName) {
+    log.debug("===== Entered In isUserHasADAdminAccount ===== "+ identityName);
+    debugFunction("isUserHasADAdminAccount");
+    boolean retVal = false;
+    try
+    {
+      Identity identity = context.getObjectByName(Identity.class,identityName);
+      String displayName = "";
+      if (identity != null) {
+        displayName = identity.getAttribute("displayName");
+        retVal = isUserHasADAdminAccountWithPostfixFormat(context, identityName) 
+   	      || isUserHasADAdminAccountWithHistoricalFormat(context, displayName) 
+          || isUserHasADAdminAccountWithOneCount(context, identityName);
+      }
+      log.debug("===== Exiting From isUserHasADAdminAccount ===== "+ retVal);
+      context.decache(identity);
+    } catch (Exception ex ) {
+      workflow.put("errorMsg","ERROR Exception - hasAdmin: "+ex.getMessage()); 
+    }
+    return retVal;
+  }
+  
+  /*****************************************************************************
+  * Check to See If User has AD Admin Account - support xxxxx-admin postfix
+  *
+  ******************************************************************************/
+  public boolean isUserHasADAdminAccountWithPostfixFormat(SailPointContext context,String identityName) {
+    log.debug("===== Entered In isUserHasADAdminAccountWithPostfixFormat ===== "+ identityName);
+    debugFunction("isUserHasADAdminAccountWithPostfixFormat");
+    boolean retVal = false;
+    try
+    {
+      Identity identity = context.getObjectByName(Identity.class,identityName);
+      String adAdminNetId = identity.getAttribute("netId")+"-admin";
+      if (Util.isNotNullOrEmpty(adAdminNetId)) {
+        Identity adAdminId = context.getUniqueObject(Identity.class,Filter.and(Filter.eq("netId",adAdminNetId),Filter.eq("type","nyu_ad_administrator_account")));
+        if (adAdminId != null) {
+          workflow.put("adAdminNetID",adAdminNetId);
+          
+          TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+          if (tr != null &amp;&amp; tr != void) {
+            tr.addAttribute("adAdminNetID",adAdminNetId);
+          }
+          retVal = true;
+          context.decache(adAdminId);
+        }
+      }
+      log.debug("===== Exiting From isUserHasADAdminAccountWithPostfixFormat ===== "+ retVal);
+      context.decache(identity);
+    } catch (Exception ex ) {
+      workflow.put("errorMsg","ERROR Exception - hasAdmin: "+ex.getMessage()); 
+    }
+    return retVal;
+  }
+  
+  /******************************************************************************************************
+  * Check to See If User has AD Admin Account - support historical firstnameLastnameFirstLetter
+  * Return true if there is only one row with type of nyu_ad_administrator_account, otherwise false
+  ******************************************************************************************************/
+  public boolean isUserHasADAdminAccountWithHistoricalFormat(SailPointContext context,String displayName) {
+    log.debug("===== Entering Into isUserHasADAdminAccountWithHistoricalFormat ===== "+ displayName);
+    QueryOptions qo = new QueryOptions();
+    qo.addOrdering("id", true);
+    // Set up Filter criteria
+    List filtersAnd = new ArrayList();
+
+    filtersAnd.add(Filter.eq("displayName", displayName));
+    filtersAnd.add(Filter.eq("type", "nyu_ad_administrator_account"));
+    filtersAnd.add(Filter.notnull("netId"));
+    filtersAnd.add(Filter.not(Filter.eq("inactive", Boolean.valueOf(true))));
+    List filtersOr = new ArrayList();
+
+    qo.addFilter(Filter.and(filtersAnd));
+    qo.addFilter(Filter.or(filtersOr));
+    
+    Iterator it = context.search(Identity.class, qo);
+    String adAdminNetId = "";
+    int count = 0;
+    while (it.hasNext()){
+      count++;
+      Identity curIdentity = (Identity) it.next();
+      adAdminNetId = curIdentity.getAttribute("netId");
+      // decache
+       context.decache(curIdentity);
+    }
+    
+    boolean retVal = false;
+    if (count ==1) {
+      workflow.put("adAdminNetID",adAdminNetId);
+          
+      TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+      if (tr != null &amp;&amp; tr != void) {
+        tr.addAttribute("adAdminNetID",adAdminNetId);
+      }
+      log.debug("===== displayName " + displayName + ". adAdminNetId: " + adAdminNetId);
+      retval= true;
+    } else {
+      log.debug("Found more than one with the same displayName: " + displayName);
+    }
+    log.debug("===== Exiting From isUserHasADAdminAccountWithHistoricalFormat =====. retVal: " + retVal);
+    return retVal;
+  }
+  
+  /*****************************************************************************
+   *   Check to See If User has AD Admin Accounts - support multiple AD Admin accounts
+   *
+   ******************************************************************************/
+  public boolean isUserHasADAdminAccountWithOneCount(SailPointContext context,String identityName) {
+    log.debug("===== Entered In isUserHasADAdminAccountWithOneCount ===== "+ identityName);
+    debugFunction("isUserHasADAdminAccountWithOneCount");
+    boolean retVal = false;
+    try
+    {
+      Identity identity = context.getObjectByName(Identity.class,identityName);
+      String netId = identity.getAttribute("netId"); 
+      if (Util.isNotNullOrEmpty(netId)) {
+        StringBuilder builder = new StringBuilder();
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(Filter.eq("administrator.id", identity.getId()));
+        qo.addFilter(Filter.eq("type", "nyu_ad_administrator_account"));
+        Iterator it = new IncrementalObjectIterator(context, Identity.class, qo);
+        
+        // User might have multiple historical nyu_ad_admin_account
+        List adAdminIdList = new ArrayList();
+        while ((null != it) &amp;&amp; (it.hasNext())) {
+          Identity adAdminId = (Identity) it.next();
+          adAdminIdList.add(adAdminId.getAttribute("netId"));
+          log.debug("adding adAdminId to disabled: " + adAdminId.getAttribute("netId"));
+          // decache
+          context.decache(adAdminId);
+        }
+        
+        // if user has only one AD ADmin account, process it
+        if (adAdminIdList.size() == 1) {
+          workflow.put("adAdminNetID",adAdminIdList.get(0));
+
+            TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+            if (tr != null &amp;&amp; tr != void) {
+              tr.addAttribute("adAdminNetID",adAdminIdList.get(0));
+            }
+            retVal = true;
+        }
+        else {
+          // do nothing if user has multiple AD Admin accounts
+          log.debug("User has multiple AD Admin accounts. Skip all");
+          /*
+          Collections.sort(adAdminIdList);
+          String adAdminIdCsv = Util.listToCsv(adAdminIdList);
+
+          if (adAdminIdCsv != null) {
+            workflow.put("adAdminNetID",adAdminIdCsv);
+
+            TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+            if (tr != null &amp;&amp; tr != void) {
+              tr.addAttribute("adAdminNetID",adAdminIdCsv);
+            }
+            retVal = true;
+          }
+          */
+        }
+        
+      }
+      context.decache(identity);
+      log.debug("===== Exiting From isUserHasADAdminAccountWithOneCount ===== "+ retVal);
+    } catch (Exception ex ) {
+      workflow.put("errorMsg","ERROR Exception - hasAdmin: "+ex.getMessage()); 
+    }
+    return retVal;
+  }
+  
+  /*******************************************************************************
+  *               Create and Execute AD Admin Account Disable Plan
+  *
+  *********************************************************************************/
+  public String createDisablePlanForADAdminAccount(SailPointContext context, String adAdminNetIDCsv, boolean skipProvisioning) {
+    log.debug("===== Entering Into createDisablePlanForADAdminAccount ===== "+ adAdminNetIDCsv);
+    debugFunction("createDisablePlanForADAdminAccount");
+    String successMsg = null;
+    String logErrorDetails = "NONE";
+    try
+    {
+      // if there are multiple values in the csv string ..
+      String [] adminNetIds = adAdminNetIDCsv.replace(" ","").split(",");
+      for (String adminNetId :  adminNetIds) {
+        log.debug("processing netID: " + adminNetId);
+        Identity adAdminId = context.getUniqueObject(Identity.class,Filter.eq("netId",adminNetId));
+        if (adAdminId != null) {
+          String adminIdentityName = adAdminId.getName();
+          String googleAccess = "false";
+          List disabledApps = new ArrayList();
+          Map inputMap = preparingInputMap(context,adminIdentityName,googleAccess, true, false, true);
+          log.debug("===== The InputMap in createDisablePlanForADAdminAccount ===== "+ inputMap);
+          if ( !inputMap.isEmpty()) {
+            ProvisioningPlan adminPlan = new ProvisioningPlan();
+            adminPlan.setIdentity(adAdminId);
+            adminPlan.setNativeIdentity(adAdminId.getName());
+            for (Object appkeys: inputMap.keySet()) {
+              String appkey = (String)appkeys;
+              if (Util.isNotNullOrEmpty(appkey)) {
+                disabledApps.add(appkey);
+                AccountRequest acctReq = createAppSpecificDisablePlan(appkey,inputMap.get(appkey),adminIdentityName);
+                if (acctReq != null) {
+                  adminPlan.add(acctReq);
+                }
+              }
+            }
+            logErrorDetails = "Before IIQ Account Request- Plan:"+ adminPlan.toXml();
+
+            // Update the user's values in IIQ to follow the standard ones.
+            AccountRequest acctReqIIQ = createAdminIIQAccountUpdate(adminIdentityName);
+            if (acctReqIIQ != null) {
+              adminPlan.add(acctReqIIQ);
+            }
+            logErrorDetails = "After IIQ Account Request- Plan:"+ adminPlan.toXml();
+
+            if (adminPlan != null) {
+              log.debug("===== The AD ADMIN PLAN in createDisablePlanForADAdminAccount ===== "+ adminPlan.toXml());
+              workflow.put("disableAdminPlan",adminPlan);
+
+              TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+              if (tr != null &amp;&amp; tr != void) {
+                tr.addAttribute("disableAdminPlan",adminPlan);
+              }
+
+              executePlan(adminPlan,adminIdentityName,skipProvisioning);
+              logErrorDetails = "After Execute Plan - Plan:"+ adminPlan.toXml();
+
+              //Generating the Success Audit Event for the AD Admin Accounts.
+              successAuditAction("StandardOffBoarding Success Event", "StandardOffBoarding", adminNetId, Util.listToCsv(disabledApps),"StandardOffboarding Successful" ,null);
+              successMsg = "StandardOffboarding Successful for : "+adminNetId+". The disabled links are : "+Util.listToCsv(disabledApps);
+
+              logErrorDetails = "After Update Audits - Plan:"+ adminPlan.toXml();
+              /*
+              if (wfcontext != null &amp;&amp; wfcontext != void &amp;&amp; wfcontext.getWorkflowCase() != null &amp;&amp; wfcontext.getWorkflowCase() != void) {
+                TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+                if (tr != null &amp;&amp; tr != void) {
+                  tr.addAttribute("disableAdminPlan",adminPlan);
+                }
+              }
+              */
+            }
+          }
+        }
+      }
+    } catch (Exception ex ) {
+      workflow.put("errorMsg","ERROR Exception - DisableAdmin: ["+logErrorDetails+"] exception: "+ex.getMessage());
+      addErrorMessageToWorkflow("ERROR Exception - DisableAdmin: ["+logErrorDetails+"] exception: "+ex.getMessage());
+    }
+    workflow.put("successMsg",successMsg);
+    log.debug("===== Exiting From createDisablePlanForADAdminAccount ===== "+ successMsg);
+    return successMsg;
+  }
+  
+   /*****************************************************************************
+   *              Preparing IIQ AccountRequest by passing the identity name.
+   ******************************************************************************/
+  public AccountRequest createAdminIIQAccountUpdate(String identityName)
+  {
+    log.debug("===== Entered Into createAdminIIQAccountUpdate ===== "+ identityName );
+    debugFunction("createAdminIIQAccountUpdate");
+    AccountRequest acr = new AccountRequest();
+    Identity adminIdentity = context.getObjectByName(Identity.class,identityName);
+    if ( adminIdentity != null) {
+      acr.setOperation(Operation.Modify);
+      acr.setNativeIdentity(adminIdentity.getName());
+      acr.setApplication(ProvisioningPlan.IIQ_APPLICATION_NAME);
+      
+      ProvisioningPlan.AttributeRequest formerSubtypeAttr = new ProvisioningPlan.AttributeRequest();
+      formerSubtypeAttr.setOperation( ProvisioningPlan.Operation.Set );
+      formerSubtypeAttr.setName( "formerAffiliationSubtypes" );
+      formerSubtypeAttr.setValue( adminIdentity.getAttribute( "currentAffiliationSubtypes" ) );
+      acr.add( formerSubtypeAttr );
+      
+      ProvisioningPlan.AttributeRequest currentSubtypeAttr = new ProvisioningPlan.AttributeRequest();
+      currentSubtypeAttr.setOperation( ProvisioningPlan.Operation.Set );
+      currentSubtypeAttr.setName( "currentAffiliationSubtypes" );
+      currentSubtypeAttr.setValue( "" );
+      acr.add( currentSubtypeAttr );
+      
+      ProvisioningPlan.AttributeRequest formerAffiliationAttr = new ProvisioningPlan.AttributeRequest();
+      formerAffiliationAttr.setOperation( ProvisioningPlan.Operation.Set );
+      formerAffiliationAttr.setName( "formerAffiliations" );
+      formerAffiliationAttr.setValue(adminIdentity.getAttribute( "currentAffiliations" ));
+      acr.add( formerAffiliationAttr );
+      
+      ProvisioningPlan.AttributeRequest currentAffiliationAttr = new ProvisioningPlan.AttributeRequest();
+      currentAffiliationAttr.setOperation( ProvisioningPlan.Operation.Set );
+      currentAffiliationAttr.setName( "currentAffiliations" );
+      currentAffiliationAttr.setValue( "" );
+      acr.add( currentAffiliationAttr );
+
+      SimpleDateFormat df = new SimpleDateFormat("MM/dd/YYYY");
+      Calendar today = Calendar.getInstance();
+      String netIdExpiredOn = df.format(today.getTime());
+      
+      ProvisioningPlan.AttributeRequest netIdExpirationAttr = new ProvisioningPlan.AttributeRequest();
+      netIdExpirationAttr.setOperation( ProvisioningPlan.Operation.Set );
+      netIdExpirationAttr.setName( "netIdExpiration" );
+      netIdExpirationAttr.setValue( netIdExpiredOn );
+      acr.add( netIdExpirationAttr );
+      
+      ProvisioningPlan.AttributeRequest primaryStatusAttr = new ProvisioningPlan.AttributeRequest();
+      primaryStatusAttr.setOperation( ProvisioningPlan.Operation.Set );
+      primaryStatusAttr.setName( "primaryAffiliationStatus" );
+      primaryStatusAttr.setValue( "former" );
+      acr.add( primaryStatusAttr );
+
+    }
+
+    log.debug("===== Exiting From createAdminIIQAccountUpdate ===== "+ acr);
+    context.decache(adminIdentity);
+    return acr;
+  }
+  
+  /*****************************************************************************
+   *       Preparing Map to Create Disable Plan. 
+   *            Adding All links applicationNames and nativeIdentities to the map.                
+   ******************************************************************************/
+  public Map preparingInputMap(SailPointContext context,String identityName,String googleAccess,boolean clearExceptionRoles, boolean skipAppExceptionRoles, boolean skipRoleCheckForAdmin) throws GeneralException {
+    log.debug("===== Entering Into preparingInputMap ===== "+ identityName);
+    debugFunction("preparingInputMap");
+    Map map = new HashMap();
+    String successMsg = null;
+    ArrayList disabledApps = new ArrayList();
+    ArrayList scrambleApps = new ArrayList();
+
+    // First, refresh the user again to make sure they have the latest Roles
+    refreshUser( identityName );
+    
+    //List includedAppsToDisable = new ArrayList(Arrays.asList("LDAP", "AD", "Shanghai AD", "Radius", "Duo") );
+    //List includedAppsToScramble = new ArrayList(Arrays.asList("LDAP", "AD", "Shanghai AD", "Radius", "Google Apps") );
+
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (identity != null) {
+      
+      List identityLinks = identity.getLinks();
+      if (Util.isEmpty(identityLinks)) {
+        successMsg = "Identity Doesn't have any links to disable : "+idenytityName;
+        workflow.put("successMsg",successMsg);
+        workflow.put("netId",identity.getAttribute("netId"));
+        //throw new GeneralException("Identity Doesn't have any links to disable"+idenytityName);
+      } else {
+      
+        // Get the NewIdentity's assigned_role_summary
+        String assignedRoles = identity.getAssignedRoleSummary();
+       
+        List assignedRolesList = null;
+            
+        if ( assignedRoles.contains(",") )
+        {
+          assignedRolesList = new ArrayList&lt;String>(Arrays.asList(assignedRoles.split(", ")));
+        } else {
+          assignedRolesList = new ArrayList&lt;String>();
+          assignedRolesList.add( assignedRoles );
+        }
+        log.debug("992349- Checking user ["+ identityName+"] for assignedRoles: ["+assignedRolesList+"]");
+        
+        // Check is we need to ignore the Application Exceptions Roles when checking if a users is allowed an account. 
+        boolean ignoreAppExceptionRoles = false;
+        if ( clearExceptionRoles &amp;&amp; !skipAppExceptionRoles ) ignoreAppExceptionRoles = true;
+        
+        Iterator identityLinkIterator = Util.safeIterable(identityLinks).iterator();
+        while (identityLinkIterator.hasNext()) {
+          Link link = (Link)identityLinkIterator.next();
+          if ( null != link )
+          {
+            String linkAppName = link.getApplicationName();
+
+            if ( Util.isNotNullOrEmpty(linkAppName) &amp;&amp; !link.isDisabled() )
+            {            
+              log.debug("992349- Checking user ["+ identityName+"] for linkAppName: ["+linkAppName+"]");
+              if ( skipRoleCheckForAdmin || !userHasRoleForApplication( linkAppName, assignedRolesList, ignoreAppExceptionRoles ) )
+              {
+            
+                if (linkAppName.equalsIgnoreCase("Google Apps")) {
+                  map.put( linkAppName, link.getNativeIdentity() );
+                  disabledApps.add( linkAppName );
+                  if ( includedAppsToScramble.contains( linkAppName ) ) {
+                    scrambleApps.add( linkAppName );
+                  }            
+                  workflow.put("hasGoogleAccount",true);
+                } else if ( includedAppsToDisable.contains( linkAppName )) {
+                  map.put( linkAppName, link.getNativeIdentity() );
+                  disabledApps.add( linkAppName );
+                  if ( includedAppsToScramble.contains( linkAppName ) ) {
+                    scrambleApps.add( linkAppName );
+                  }
+                }             
+              } // End userHasRoleForApplication
+            }
+          }
+        }
+        workflow.put("inputMap",map);
+        Util.flushIterator(identityLinkIterator);
+      }
+    }
+    if (map.isEmpty()) {
+      successMsg = "The Links of an Identity is already disabled : "+identity.getAttribute("netId");
+      workflow.put("successMsg",successMsg);
+      workflow.put("disabledApps",successMsg);
+      workflow.put("scrambleApps",successMsg);
+      workflow.put("netId",identity.getAttribute("netId"));
+      return map;
+    }
+    successMsg = "The disabled links for the Identity are : "+Util.listToCsv(disabledApps);
+    workflow.put("successMsg",successMsg);
+    workflow.put("netId",identity.getAttribute("netId"));
+    workflow.put("disabledApps",Util.listToCsv(disabledApps));
+    workflow.put("scrambleApps",Util.listToCsv(scrambleApps));
+    log.debug("===== Exiting From preparingInputMap ===== "+ map);
+    context.decache(identity);
+    return map;
+  }
+  
+  
+  /*****************************************************************************
+   *              Preparing AccountRequests by passing 
+   *                   the application Name and native Identity.
+   ******************************************************************************/
+  public AccountRequest createAppSpecificDisablePlan(String applicationName ,String nativeIdentity,String identityName)
+  {
+    log.debug("===== Entered Into createAppSpecificDisablePlan ===== "+ applicationName +" Native Identity "+nativeIdentity);
+    debugFunction("createAppSpecificDisablePlan");
+    AccountRequest acr = new AccountRequest();
+    Identity identity = context.getObjectByName(Identity.class,identityName);
+    if (applicationName != null &amp;&amp; nativeIdentity != null &amp;&amp; identity != null) {
+      acr.setOperation(ProvisioningPlan.AccountRequest.Operation.Disable);
+      acr.setApplication(applicationName);
+      acr.setNativeIdentity(nativeIdentity);
+      
+      if (applicationName.equals("LDAP")) {       
+        List entsToRemove = new ArrayList();
+        ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+        disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+        disableAttribute.setName("pwdAccountLockedTime");
+        disableAttribute.setValue("000001010000Z");
+        acr.add(disableAttribute);
+        
+        Link link = context.getUniqueObject(Link.class,Filter.and(Filter.eq("application.name",applicationName),Filter.eq("nativeIdentity",nativeIdentity)));
+        ProvisioningPlan.AttributeRequest removeEntReq = new ProvisioningPlan.AttributeRequest();
+        removeEntReq.setOperation(ProvisioningPlan.Operation.Remove);
+        removeEntReq.setName("eduPersonEntitlement");
+        if (link != null &amp;&amp; link.isEntitlements()) {
+          QueryOptions ldapQo = new QueryOptions();
+          Filter filter = Filter.and(Filter.eq("application.name",applicationName),Filter.eq("nativeIdentity",nativeIdentity));
+          ldapQo.addFilter(filter);
+          //List identityEntList = context.getObjects(IdentityEntitlement.class,ldapQo);
+          List identityEntList = sailpoint.tools.Util.otol(link.getAttribute("eduPersonEntitlement"));
+          if (Util.nullSafeSize(identityEntList) > 0) {
+            Iterator identityEntIterator = Util.safeIterable(identityEntList).iterator();
+            while (identityEntIterator.hasNext()) {
+              String identityEntitlement = (String)identityEntIterator.next();
+              
+              List removeEntValues = new ArrayList();
+              if (identityEntitlement != null) {
+                entsToRemove.add(identityEntitlement);
+                
+              }
+            }
+          }
+        }
+        if (Util.nullSafeSize(entsToRemove) > 0 ) {
+          if (identity.getAttribute("netId") !=null &amp;&amp; identity.getAttribute("netId").contains("-admin")){
+            workflow.put("adminLDAPents",Util.listToCsv(entsToRemove));
+          } else {
+            workflow.put("entsToRemove",Util.listToCsv(entsToRemove));
+          }
+          removeEntReq.setValue(entsToRemove);
+          acr.add(removeEntReq);
+        }
+      
+      } else if (applicationName.equals("AD")) {
+        ProvisioningPlan.AttributeRequest iiqDisabled = new ProvisioningPlan.AttributeRequest();
+        iiqDisabled.setOperation(ProvisioningPlan.Operation.Set);
+        iiqDisabled.setName("IIQDisabled");
+        iiqDisabled.setValue(true);
+        acr.add(iiqDisabled);
+        
+        ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+        disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+        disableAttribute.setName("userAccountControl");
+        disableAttribute.setValue("514");
+        acr.add(disableAttribute);
+      
+      } else if (applicationName.equals("Shanghai AD")) {
+        ProvisioningPlan.AttributeRequest iiqDisabled = new ProvisioningPlan.AttributeRequest();
+        iiqDisabled.setOperation(ProvisioningPlan.Operation.Set);
+        iiqDisabled.setName("IIQDisabled");
+        iiqDisabled.setValue(true);
+        acr.add(iiqDisabled);
+        
+        ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+        disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+        disableAttribute.setName("userAccountControl");
+        disableAttribute.setValue("514");
+        acr.add(disableAttribute);
+      
+      }  else if (applicationName.equals("Radius")) {       
+        ProvisioningPlan.AttributeRequest UserEnabled = new ProvisioningPlan.AttributeRequest();
+        UserEnabled.setOperation(ProvisioningPlan.Operation.Set);
+        UserEnabled.setName("User-Enabled");
+        UserEnabled.setValue("0");
+        acr.add(UserEnabled);
+        
+        ProvisioningPlan.AttributeRequest userVPNAuth = new ProvisioningPlan.AttributeRequest();
+        userVPNAuth.setOperation(ProvisioningPlan.Operation.Set);
+        userVPNAuth.setName("User-VPN-Auth");
+        userVPNAuth.setValue("0");
+        acr.add(userVPNAuth);
+             
+        ProvisioningPlan.AttributeRequest UserEduroamAuth = new ProvisioningPlan.AttributeRequest();
+        UserEduroamAuth.setOperation(ProvisioningPlan.Operation.Set);
+        UserEduroamAuth.setName("User-Eduroam-Auth");
+        UserEduroamAuth.setValue("0");
+        acr.add(UserEduroamAuth);
+        
+        ProvisioningPlan.AttributeRequest UserNYURoamAuth = new ProvisioningPlan.AttributeRequest();
+        UserNYURoamAuth.setOperation(ProvisioningPlan.Operation.Set);
+        UserNYURoamAuth.setName("User-NYURoam-Auth");
+        UserNYURoamAuth.setValue("0");
+        acr.add(UserNYURoamAuth);
+        
+        ProvisioningPlan.AttributeRequest UserProxyAuth = new ProvisioningPlan.AttributeRequest();
+        UserProxyAuth.setOperation(ProvisioningPlan.Operation.Set);
+        UserProxyAuth.setName("User-Proxy-Auth");
+        UserProxyAuth.setValue("0");
+        acr.add(UserProxyAuth);
+      } else if (applicationName.equals("Duo")) {
+      
+        //Disabling DUO by setting status attribute to disabled.
+        acr.setOperation(Operation.Modify);
+        
+        ProvisioningPlan.AttributeRequest userTypeAttribute = new ProvisioningPlan.AttributeRequest();
+        userTypeAttribute.setOperation(ProvisioningPlan.Operation.Set);
+        userTypeAttribute.setName("status");//pwd
+        userTypeAttribute.setValue("disabled");//pwd
+        acr.add(userTypeAttribute);
+        
+        ProvisioningPlan.AttributeRequest disableAttribute = new ProvisioningPlan.AttributeRequest();
+        disableAttribute.setOperation(ProvisioningPlan.Operation.Set);
+        disableAttribute.setName("IIQDisabled");//pwd
+        disableAttribute.setValue(true);//pwd
+        acr.add(disableAttribute);
+      }
+    }
+    log.debug("===== Exiting From createAppSpecificDisablePlan ===== "+ acr);
+    context.decache(identity);
+    return acr;
+  }
+  
+  /*****************************************************************************
+   *   Build remove Exception Roles plan 
+   *
+   * @return - List of AttributeRequests for the specific Exception Roles.
+   ******************************************************************************/  
+  public List buildRemoveExceptionRoles(SailPointContext context, String identityName, boolean skipAppExceptionRoles) 
+  {
+    log.debug("===== Entered In buildRemoveExceptionRoles ===== "+ identityName);
+    debugFunction("buildRemoveExceptionRoles");
+    boolean hasExceptionRole = false;
+    Identity localIdentity = context.getObjectByName(Identity.class,identityName);
+    List userAssignedRoles = localIdentity.getAssignedRoles();
+    ArrayList exceptionRolesToRemove = new ArrayList();
+    ArrayList removeExceptionsRolesARList = new ArrayList();
+    if (Util.nullSafeSize(userAssignedRoles) > 0) 
+    {
+      for (Bundle role : userAssignedRoles) {
+        if ( (role != null &amp;&amp; role.getName() != null &amp;&amp; role.getName().contains("Exception")) || 
+             (role != null &amp;&amp; role.getDisplayName() != null &amp;&amp; role.getDisplayName().contains("Exception"))
+           ) 
+        {
+          log.debug("===== The Role Name In isUserHasAnExceptionRoles ===== "+ role.getName());
+          log.debug("===== The Role DisplayName In isUserHasAnExceptionRoles ===== "+ role.getDisplayName());
+          if ( skipAppExceptionRoles &amp;&amp; appExceptionRoles.contains(role.getDisplayName()) )
+          {
+            log.debug("Skipping App Exception Role: "+role.getDisplayName());
+          } else {
+            hasExceptionRole = true;
+            exceptionRolesToRemove.add( role.getDisplayName() );
+            removeExceptionsRolesARList.add( generateRemoveRoleRequest(role) );
+          }
+        }
+      }
+      
+      if ( hasExceptionRole )
+      {
+        //Add the list of Exception Roles to the workflow
+        workflow.put("removedExceptionRoles", Util.listToCsv(exceptionRolesToRemove));
+        log.debug("===== Exiting From buildRemoveExceptionRoles ===== "+ hasExceptionRole);
+        context.decache(localIdentity);
+        return removeExceptionsRolesARList;
+      }
+    }
+    log.debug("===== Exiting From buildRemoveExceptionRoles ===== "+ hasExceptionRole);
+    context.decache(localIdentity);
+    return null;
+  } // Method buildRemoveExceptionRoles end....
+  
+    
+  /*****************************************************************************
+   *  Refresh the user, including roles. 
+   *
+   ******************************************************************************/
+  public void refreshUser(String identityName) 
+  {
+    log.debug("===== Entering refreshUser ===== ");
+    //Reload the identity after processing the plan and then call refresh
+    Identity localIdentity = context.getObjectByName(Identity.class,identityName);
+    Attributes args = new Attributes();
+    args.put("enablePartitioning", "false");
+    args.put("correlateEntitlements", "true");
+    args.put("refreshIdentityEntitlements", "true");
+    args.put("provision", "true");
+    Identitizer identitizer = new Identitizer(context, args);
+    identitizer.refresh(localIdentity);
+    context.decache(localIdentity);
+    log.debug("===== Exiting From refreshUser ===== ");
+  }
+  
+  
+  /*****************************************************************************
+   *  To Compile and execute the plan
+   *
+   ******************************************************************************/
+  public void executePlan(ProvisioningPlan exPlan, String identityName, boolean skipProvisioning) 
+  {
+    log.debug("===== Entered Into executePlan ===== "+ exPlan.toXml());
+    debugFunction("executePlan");
+    
+    Provisioner p = new Provisioner(context);
+    p.setNoLocking(false);
+    ProvisioningProject project = p.compile(exPlan);
+    log.debug("After plan Compilation: " + exPlan.toXml());
+    log.debug("After project Compilation: " + project.toXml());
+    if ( !skipProvisioning ) {
+      p.execute();
+    } else {
+      log.debug("Provisioning Skipped.");
+    }
+    log.debug("After plan execution: " + System.currentTimeMillis());
+    
+    String logStepMsg = "NONE";
+    
+    try 
+    {
+    log.debug("=====  refresUser ===== ");
+    //Reload the identity after processing the plan and then call refresh
+    Identity localIdentity = context.getObjectByName(Identity.class,identityName);
+    if ( localIdentity != null )
+    {
+      Attributes args = new Attributes();
+      args.put("enablePartitioning", "false");
+      args.put("correlateEntitlements", "true");
+      args.put("refreshIdentityEntitlements", "true");
+      args.put("provision", "true");
+      Identitizer identitizer = new Identitizer(context, args);
+      if ( identitizer != null )
+      {
+        identitizer.refresh(localIdentity);
+      } else {
+        logStepMsg = "identitizer is null!";
+      }
+    } else {
+      logStepMsg = "localIdentity ["+identityName+"] is null!";
+    }  
+      if ( !"NONE".equals(  logStepMsg ) ) {
+        TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+        if (tr != null &amp;&amp; tr != void) {
+          tr.addAttribute("executePlanMsg", "executePlan - Identity Refresh: ["+identityName+" | "+logStepMsg+"]");
+        }
+      }
+    } catch (Exception ex ) {
+      workflow.put("errorMsg","ERROR Exception - executePlan - Identity Refresh: ["+identityName+" | "+localIdentity+"] exception: "+ex.getMessage()); 
+      addErrorMessageToWorkflow("ERROR Exception -  executePlan - Identity Refresh: ["+identityName+" | "+localIdentity+"] exception: "+ex.getMessage());
+    }  
+    log.debug("===== Exiting From executePlan ===== ");
+  }
+  
+  public String getFailedAccountProvisioning( ProvisioningPlan provPlan )
+  {
+    
+    log.debug("In Standard Offboarding Workflow: Entering [getFailedAccountProvisioning]");
+     String nonCommittedAccts = "";
+     /*
+     if (provPlan != null )
+          {
+            String userNativeId = provPlan.getNativeIdentity();
+            if ( !provPlan.isFullyCommitted() ) 
+            {
+              ProvisioningResult provResult = provPlan.getResult();
+              
+              if ( provResult != ProvisioningResult.STATUS_COMMITTED )
+              {
+                log.debug("In Standard Offboarding Workflow: Found plan for ["+userNativeId+"] with result: "+provResult );
+              
+                for (AccountRequest acctRequest : provPlan.getAccountRequests()) 
+                {
+                  if (acctRequest != null &amp;&amp; !acctRequest.isSuccess() ) 
+                  {            
+                     RequestResult acctReqResult = acctRequest.getResult();
+                     String acctNativeId = acctRequest.getNativeIdentity();
+                     String acctAppName = acctRequest.getApplication();
+                     nonCommittedAccts += acctAppName + ", ";
+                     
+                     log.warn("In Standard Offboarding Workflow: Found non-success account request for app ["+acctAppName+"] in plan for user["+userNativeId+"], acct["+acctNativeId+"] with result: "+acctReqResult );            
+                  }
+                } // end For
+              } else {
+                log.debug("In Standard Offboarding Workflow: Found plan for ["+userNativeId+"] with result: "+provResult.getResult() );
+              }
+          
+              }  else {
+                log.debug("In Standard Offboarding Workflow: plan for ["+userNativeId+"] was committed." );
+          } else {
+            log.debug("In Standard Offboarding Workflow: plan for ["+userNativeId+"] was null." );
+          } //End if provPlan != Null         
+          
+        } else {
+          log.debug("In Standard Offboarding Workflow: Evaluating Project after Provisioning: Project is NULL");
+        }
+        
+        */ 
+        
+        log.debug("In Standard Offboarding Workflow: Exiting [getFailedAccountProvisioning]");
+        
+        return nonCommittedAccts;
+  }
+
+
+  /*****************************************************************************
+   *            Building the Standard Offboarding Disable Plan
+   *
+   *****************************************************************************/
+  public String buildStandardOffboardingDisablePlan(SailPointContext context,String identityName,Map inputMap, boolean clearExceptionRoles, boolean skipProvisioning, boolean skipAppExceptionRoles) 
+  {
+    log.debug("===== Entered into buildStandardOffboardingDisablePlan method ===== "+ identityName + " InputMap "+inputMap);
+    debugFunction("buildStandardOffboardingDisablePlan");
+    String successMsg = null;
+    try 
+    {
+      Identity identity = context.getObjectByName(Identity.class,identityName);
+      ProvisioningPlan plan = new ProvisioningPlan();
+      if (inputMap != null &amp;&amp; identity != null) {
+        plan.setIdentity(identity);
+        plan.setNativeIdentity(identity.getAttribute("guid"));
+	  
+	    //Check to see if there are exception Roles to remove
+	    if ( clearExceptionRoles ) 
+	    {
+	      List exceptRolesToRemove = buildRemoveExceptionRoles(context, identityName, skipAppExceptionRoles);
+	      
+	      if ( null != exceptRolesToRemove )
+	      {
+	        AccountRequest acr = new AccountRequest();
+            acr.setOperation(Operation.Modify);
+            acr.setNativeIdentity(identity.getName());
+            acr.setApplication(ProvisioningPlan.IIQ_APPLICATION_NAME);
+	        
+	        for (AttributeRequest attrReqExcept :   exceptRolesToRemove )
+	        {
+	          acr.add( attrReqExcept );
+	        }
+	        plan.add(acr);
+	      }
+	    }
+	  
+	  
+        for (Object appkeys: inputMap.keySet()) {
+          String appkey = (String)appkeys;
+          if (Util.isNotNullOrEmpty(appkey)) {
+            AccountRequest acctReq = createAppSpecificDisablePlan(appkey,inputMap.get(appkey),identityName);
+            if (acctReq != null){
+              plan.add(acctReq);
+            }
+          }
+        }
+      }
+      
+      if (plan != null) 
+      {
+        TaskResult tr = wfcontext.getWorkflowCase().getTaskResult();
+        if (tr != null &amp;&amp; tr != void) {
+          tr.addAttribute("DisablePlan",plan.toXml());
+          tr.addMessage("DisablePlan : "+plan.toXml());
+        }
+        workflow.put("disablePlan",plan);
+        executePlan(plan,identityName,skipProvisioning);
+        // Output Success Message
+        successMsg = "Successfully Processed Plan to Disable Applications: " + disabledApps;
+        workflow.put("successMsg",successMsg);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      workflow.put("errorMsg","ERROR Exception - BuildPlan: "+e.getMessage()); 
+      addErrorMessageToWorkflow("ERROR Exception - BuildPlan: "+e.getMessage());
+    }
+    log.debug("===== Exiting From buildStandardOffboardingDisablePlan method ===== "+ successMsg);
+    return successMsg;
+  }
+  
+  /*****************************************************************************
+   *               Scramble And Suspend Google Account Method
+   *
+   ******************************************************************************/
+  
+  public void scrambleAndSuspendGoogleAccount(String identityName, String password, boolean skipProvisioning) 
+  {
+    log.info("Identity Name [" + identityName + "] - GGAPWD : " + password);
+    debugFunction("scrambleAndSuspendGoogleAccount");
+    try
+    {
+      Application googleApp = context.getObjectByName(Application.class, "Google Apps");
+      IdentityService idSvc = new IdentityService(context);
+      Identity ident = context.getObjectByName(Identity.class,identityName);
+      
+      List googleLink = idSvc.getLinks(ident,googleApp);
+      if (googleLink.size() == 1) {
+        if ( ident == null ) {
+          throw new GeneralException("Cannot find identity "+identityName);
+        }
+        if (Util.isNotNullOrEmpty(password)) {
+          log.debug("Identity Name [" + identName + "] - GGAPWD : " + password);
+          int response = -9;
+          if (!skipProvisioning ) {
+            response = changeGooglePasswordAndSuspend(identityName,password);
+          }
+          log.debug("Identity Name [" + identName + "] - Response : " + response); 
+        } else {
+          log.debug("password is null or empty so we are going to suspend the account");
+        }
+      }
+    } catch (Exception ex ) {
+      workflow.put("errorMsg","ERROR Exception - SuspendGoogle: "+ex.getMessage()); 
+      addErrorMessageToWorkflow("ERROR Exception - SuspendGoogle: "+ex.getMessage());
+    }
+  }
+  
+  /*****************************************************************************
+   *               Get accounts to disable
+   *             NOTE: Used in printDetails workflow. Intended to possibly replace part of prepareInputMap
+   ******************************************************************************/
+  public String getListOfApplicationAccountsToDisable(String identName, boolean skipAppExceptionRoles)
+  {
+    Identity ident = context.getObjectByName(Identity.class, identName);
+    StringBuilder listOfAcctApps = new StringBuilder();
+    try
+    {
+      if ( null != ident )
+      {
+        // Get the NewIdentity's assigned_role_summary
+        String assignedRoles = ident.getAssignedRoleSummary();
+       
+        List assignedRolesList = null;
+            
+        if ( assignedRoles.contains(",") )
+        {
+          assignedRolesList = new ArrayList&lt;String>(Arrays.asList(assignedRoles.split(", ")));
+        } else {
+          assignedRolesList = new ArrayList&lt;String>();
+          assignedRolesList.add( assignedRoles );
+        }
+      
+        // Get the NewIdentity's Application List
+        List userLinks = ident.getLinks();
+        
+      
+        // Loop through the application
+        for( Link appLink : userLinks )
+        {
+          
+          // If the application is not active, skip it
+          if ( appLink == null || appLink.isDisabled() ) 
+          {
+            log.debug("appLink ["+appLink.getDisplayName()+"] is null or disabled.");
+            continue;
+          }
+          
+          String linkAppName = appLink.getApplicationName();
+          List includedAppsToDisable = new ArrayList(Arrays.asList("LDAP", "AD", "Shanghai AD", "Radius", "Box", "Google Apps") ); // IAMR-2858 - removed Duo from list.
+          
+          // Skip Apps we don't disable
+          if ( !includedAppsToDisable.contains( linkAppName ) ) continue;
+          
+          boolean ignoreAppsWithExceptionRoles = false;
+          if ( skipAppExceptionRoles ) ignoreAppsWithExceptionRoles = true;
+          
+          // If the application name matches the the User Role for the applicaiton, Skip it.
+          // If the application is enabled/active, but there is no User Role for that applicaiton, Trigger = true, Break loop and return.
+          if ( userHasRoleForApplication( linkAppName, assignedRolesList, ignoreAppsWithExceptionRoles ) )
+          {
+            log.debug("User ["+identNetID+"] has a valid role for application ["+linkAppName+"].");
+            continue;
+          } else {
+            log.debug("User ["+identNetID+"] has triggered a disable for application ["+linkAppName+"].");
+            if (listOfAcctApps.length() != 0)
+            {
+              listOfAcctApps.append(", ");
+            }
+            listOfAcctApps.append(linkAppName);
+          }
+        }
+      }
+    } catch(Exception ex) {
+      log.debug( "Exception in GetList: "+ex.getMessage() );
+      log.error( "Exception in GetList: "+ex.getMessage() );
+    }
+    
+    return listOfAcctApps.toString();
+  }
+  
+  /*****************************************************************************
+   *               userHasRoleForApplication
+   *
+   ******************************************************************************/
+  boolean userHasRoleForApplication(String appName, List userRoles, boolean ignoreAppExceptionRoles)
+  {
+    boolean hasRole = false;    
+    List appRoles = null;
+    
+    log.debug("Checking for App ["+appName+"] in the list ["+userRoles+"]");
+    Custom appToRoles = context.getObject(Custom.class, "Application to Roles Mapping");
+    if( appToRoles != null &amp;&amp; Util.isNotNullOrEmpty(appName) &amp;&amp; null != userRoles )
+    {
+      
+      if(appToRoles.getAttributes().get(appName) instanceof String)
+      {
+        appRoles = new ArrayList();
+        appRoles.add(appToRoles.getAttributes().get(appName));
+      } else {      
+        appRoles = appToRoles.getAttributes().get(appName);
+      }
+      
+      log.debug("992349- CHecking appName ["+ appName+"] for appRoles: ["+appRoles+"]");
+      
+      if (Util.nullSafeSize(appRoles) > 0)
+      {
+        // Look through the appRoles and check to see if they are in the list. If yes, return true.
+        for( String roleName : appRoles )
+        {
+          // Check to see if we should ignore the exception roles when determining if a user should have an account. This is
+          // due to the exception role being removed within the same process.
+          if ( ignoreAppExceptionRoles &amp;&amp; (roleName != null &amp;&amp; roleName.contains("Exception")) )
+          {
+            log.debug("Ignoring Exception Role ["+roleName+"] for disabling app.");
+          } else if ( userRoles.contains( roleName ) )
+          {
+            log.debug("Found Role ["+roleName+"] for App ["+appName+"] in the list");
+            hasRole = true;
+            break; //Only need one to be true, so no further checking needed.
+          }
+        }
+      }  else {
+        // Unable to determine if they have it, so assume that they do for now and log an error.
+        log.debug("992349- Could not get allowed roles for Application");
+        hasRole = true;
+      } 
+    } else {
+      // Unable to determine if they have it, so assume that they do for now and log an error.
+      log.error("Could not get Application to Roles Mapping or Application passed is null/empty");
+      hasRole = true;
+    }
+    log.debug("992349- Returning Value ["+hasRole+"]");
+    return hasRole; 
+  }
+
+  /*****************************************************************************
+   *               Get accounts to enable
+   *             NOTE: Used in printDetails workflow. 
+   ******************************************************************************/
+  public String getListOfApplicationAccountsToReEnable(String identName, boolean skipAppExceptionRoles)
+  {
+    Identity ident = context.getObjectByName(Identity.class, identName);
+    StringBuilder listOfAcctApps = new StringBuilder();
+    try
+    {
+      if ( null != ident )
+      {
+        // Get the NewIdentity's assigned_role_summary
+        String assignedRoles = ident.getAssignedRoleSummary();
+       
+        List assignedRolesList = null;
+            
+        if ( assignedRoles.contains(",") )
+        {
+          assignedRolesList = new ArrayList&lt;String>(Arrays.asList(assignedRoles.split(", ")));
+        } else {
+          assignedRolesList = new ArrayList&lt;String>();
+          assignedRolesList.add( assignedRoles );
+        }
+      
+        // Get the NewIdentity's Application List
+        List userLinks = ident.getLinks();
+        
+      
+        // Loop through the application
+        for( Link appLink : userLinks )
+        {
+          
+          // If the application is  active, skip it
+          if ( appLink == null || !appLink.isDisabled() ) 
+          {
+            log.debug("appLink ["+appLink.getDisplayName()+"] is null or enabled.");
+            continue;
+          }
+          
+          String linkAppName = appLink.getApplicationName();
+          List includedAppsToEnable = new ArrayList(Arrays.asList("LDAP", "AD", "Radius", "Box", "Duo", "Google Apps") ); // IAMR-2864 - removed  "Shanghai AD" 
+          
+          // Skip Apps we don't disable
+          if ( !includedAppsToEnable.contains( linkAppName ) ) continue;
+          
+          boolean ignoreAppsWithExceptionRoles = false;
+          if ( skipAppExceptionRoles ) ignoreAppsWithExceptionRoles = true;
+          
+          // If the application name matches the the User Role for the applicaiton, Skip it.
+          // If the application is enabled/active, but there is no User Role for that applicaiton, Trigger = true, Break loop and return.
+          if ( userHasRoleForApplication( linkAppName, assignedRolesList, ignoreAppsWithExceptionRoles ) )
+          {
+            log.debug("User ["+identNetID+"] has a valid role for application ["+linkAppName+"].");
+            if (listOfAcctApps.length() != 0)
+            {
+              listOfAcctApps.append(", ");
+            }
+            listOfAcctApps.append(linkAppName);
+          } else {
+            log.debug("User ["+identNetID+"] does NOT have a valid for application ["+linkAppName+"]. Not Enabling.");          
+            continue;
+          }
+        }
+      }
+    } catch(Exception ex) {
+      log.debug( "Exception in GetList: "+ex.getMessage() );
+      log.error( "Exception in GetList: "+ex.getMessage() );
+    }
+    
+    return listOfAcctApps.toString();
+  }
+  
+  
+  </Source>
+</Rule>

@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE IdentityTrigger PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<IdentityTrigger created="1705474305457" disabled="true" handler="sailpoint.api.WorkflowTriggerHandler" id="c0a800918cfb18ae818d1630adb00f9a" modified="1706035553074" name="NATIVE CHANGE DETECTION FEATURE" type="NativeChange">
+  <Description>A change to an account was processed in IdentityIQ that needs to be confirmed.</Description>
+  <HandlerParameters>
+    <Attributes>
+      <Map>
+        <entry key="businessProcess"/>
+        <entry key="identityProcessingThreshold"/>
+        <entry key="identityProcessingThresholdType"/>
+        <entry key="workflow" value="Workflow-Lifecycle-RapidSetup-NativeChangeDetection-RequestObject-Wrapper"/>
+      </Map>
+    </Attributes>
+  </HandlerParameters>
+  <Selector>
+    <IdentitySelector>
+      <PopulationRef>
+        <Reference class="sailpoint.object.GroupDefinition" id="c0a800918cfb18ae818d16308d6f0f98" name="Santander Correlated Identities"/>
+      </PopulationRef>
+    </IdentitySelector>
+  </Selector>
+</IdentityTrigger>

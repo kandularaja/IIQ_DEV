@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1704699888286" id="c0a800918ce71528818ce808029e0141" language="beanshell" modified="1704707317930" name="insert data from CSVto database">
+  <Source>
+    package net.codejava; 
+	import java.io.*;
+	import java.sql.*;
+
+   String jdbcURL = "jdbc:mysql://localhost:3306/identityiq";
+        String username = "root";
+        String password = "root";
+ 
+        String csvFilePath = "C:\\Eshiam\\Student_Details.csv";
+ 
+        int batchSize = 20;
+ 
+        Connection connection = null;
+ 
+        try {
+ 
+            connection = DriverManager.getConnection(jdbcURL, username, password);
+            connection.setAutoCommit(true);
+ 
+            String sql = "INSERT INTO student_details (student_name,student_id) VALUES (?, ?)";
+            PreparedStatement statement = connection.prepareStatement(sql);
+ 
+            BufferedReader lineReader = new BufferedReader(new FileReader(csvFilePath));
+            String lineText = null;
+            int count = 0;
+            while ((lineText = lineReader.readLine()) != null) 
+            {
+              
+                String[] data = lineText.split(",");
+                String studentName = data[0];
+                String StudentID = data[1];
+                statement.setString(1,studentName);
+                statement.setString(2,StudentID);
+                statement.execute();
+            }
+ 
+            lineReader.close();
+            
+           String strUpdate = "update student_details  set student_name = 'New Raja' where student_id = 1239";
+           int countUpdated = statement.executeUpdate(strUpdate);
+            connection.close();
+          return countUpdated;
+        } catch (SQLException ex)
+        {
+            System.out.println(ex);
+        }
+        
+
+  </Source>
+</Rule>

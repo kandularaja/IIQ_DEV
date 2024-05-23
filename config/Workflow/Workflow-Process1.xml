@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1714019038269" explicitTransitions="true" id="c0a81db48f0f163a818f137ef43c037c" monitored="true" name="Process1" type="Alert">
+  <Variable editable="true" input="true" name="Department" output="true" required="true">
+    <Description>Employee Department</Description>
+  </Variable>
+  <Description>Alert</Description>
+</Workflow>

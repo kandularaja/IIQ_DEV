@@ -1,0 +1,101 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1684130765407" id="c0a81db387fb113b81881e041a5f1348" modified="1688541385848" name="Identity  Selection Form" type="Role">
+  <ApplicationRef>
+    <Reference class="sailpoint.object.Application" id="c0a81db3887a1d1b81889a5bd1a80f7c" name="Americana-CrunchTime"/>
+  </ApplicationRef>
+  <Attributes>
+    <Map>
+      <entry key="IIQTemplateOwnerDefinition">
+        <value>
+          <DynamicValue value="IIQApplicationOwner"/>
+        </value>
+      </entry>
+      <entry key="includeHiddenFields" value="true"/>
+      <entry key="pageTitle" value="Identity  Selection Form"/>
+      <entry key="subtitle" value="This are the fileds for Identity"/>
+      <entry key="title" value="Hello"/>
+    </Map>
+  </Attributes>
+  <Description>Identity Selection Form</Description>
+  <Section label="Introduction" name="intro">
+    <Field displayName="This is intoduction section"/>
+  </Section>
+  <Section label="Section 1 Fields" name="sec1">
+    <Field displayName="Identity Name" name="userId" postBack="true" required="true" type="string">
+      <Attributes>
+        <Map>
+          <entry key="valueProperty" value="firstname"/>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field displayName="Application Name" multi="true" name="selectApplication" postBack="true" required="true" type="Application">
+      <Attributes>
+        <Map>
+          <entry key="valueProperty" value="name"/>
+        </Map>
+      </Attributes>
+    </Field>
+    <Field displayName="Identities" multi="true" name="apps" type="Identity"/>
+    <Field displayName="Rules" multi="true" name="rule" type="Rule"/>
+    <Field displayName="First Name" dynamic="true" name="firstname" postBack="true" type="text">
+      <Script>
+        <Source>         
+          return "Rajasekhar";        
+        </Source>
+      </Script>
+    </Field>
+    <Field displayName="Last Name" dynamic="true" name="lastname" postBack="true" type="text">
+      <Script>
+        <Source>         
+          return "Kandula";        
+        </Source>
+      </Script>
+    </Field>
+    <Field displayName="Full Name" dynamic="true" name="fullname" postBack="true" type="text">
+      <Script>
+        <Source>
+          String fullname = form.getField("firstname").getValue()+"  "+form.getField("lastname").getValue();
+          System.out.println("Full Name::   "+fullname);
+          return fullname;        
+        </Source>
+      </Script>
+    </Field>
+    <Field displayName="Department" displayType="combobox" name="dept">
+      <AllowedValuesDefinition>
+        <Value>
+          <List>
+            <String>Accounting</String>
+            <String>Manufacturing</String>
+            <String>Engineering</String>
+          </List>
+        </Value>
+      </AllowedValuesDefinition>
+    </Field>
+    <Field displayName="Gender" displayType="boolean" name="gen">
+      <AllowedValuesDefinition>
+        <Value>
+          <List>
+            <String>M</String>
+            <String>F</String>
+          </List>
+        </Value>
+      </AllowedValuesDefinition>
+    </Field>
+    <Field displayName="Mobile Number" dynamic="true" name="mob" postBack="true" type="string">
+      <ValidationScript>
+        <Source>
+          import java.io.*;
+            String mob = form.getField("mob").getValue();
+          System.out.println("Mob:::   :"+mob);
+          if(mob.length()!=10)
+          return "Incorrect mobile number,does not meet length.";
+        </Source>
+      </ValidationScript>
+    </Field>
+  </Section>
+  <Button action="next" label="Submit"/>
+  <Button action="cancel" label="Cancel"/>
+  <Button action="back" label="Back"/>
+  <Button action="refresh" label="Refresh"/>
+</Form>

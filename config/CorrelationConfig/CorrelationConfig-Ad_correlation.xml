@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE CorrelationConfig PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<CorrelationConfig created="1681217062006" id="c0a81db387701cf2818770588476001b" modified="1716370545380" name="AD_Correlation">
+  <AttributeAssignments>
+    <Filter operation="EQ" property="name" value="sAMAccountName"/>
+  </AttributeAssignments>
+</CorrelationConfig>

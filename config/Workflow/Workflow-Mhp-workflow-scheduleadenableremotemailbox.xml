@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1711450174529" explicitTransitions="true" id="c0a81db38e551dc4818e7a6134412126" libraries="Identity" modified="1713182720073" name="MHP-WorkFlow-ScheduleADEnableRemoteMailbox">
+  <Variable initializer="false" name="trace"/>
+  <Variable input="true" name="identityName"/>
+  <Variable input="true" name="nativeIdentity"/>
+  <Variable input="true" name="sAMAccountName"/>
+  <Variable input="true" name="externalEmail"/>
+  <Variable input="true" name="userPrincipalName"/>
+  <Variable input="true" name="mailEnabledUser"/>
+  <Variable name="plan"/>
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="Generate Dummy Plan"/>
+  </Step>
+  <Step icon="general" name="Generate Dummy Plan" posX="167" posY="11" resultVariable="plan">
+    <Script>
+      <Source>import sailpoint.api.IdentityService;
+        import sailpoint.object.Application;
+        import sailpoint.object.Identity;
+        import org.apache.commons.logging.Log;
+        import sailpoint.object.ProvisioningPlan;
+        import sailpoint.object.ProvisioningPlan.Operation;
+        import sailpoint.object.Link;
+        import sailpoint.object.ProvisioningPlan.AccountRequest;
+        import sailpoint.object.ProvisioningPlan.AttributeRequest;
+        import sailpoint.object.AttributeMetaData;
+        import sailpoint.object.Filter;
+        import sailpoint.object.ManagedAttribute;
+        import sailpoint.tools.GeneralException;
+        import sailpoint.tools.xml.XMLObjectFactory;
+        import sailpoint.object.Identity;
+        import sailpoint.object.Custom;
+        import java.text.SimpleDateFormat;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.object.AuditEvent;
+        import sailpoint.object.QueryOptions;
+        import sailpoint.object.Filter;
+        import sailpoint.server.Auditor;
+        import sailpoint.api.Terminator;
+        import sailpoint.tools.Util;
+        import java.util.Date;
+        import java.util.Calendar;
+        import sailpoint.api.Provisioner;
+        import sailpoint.api.IdentityService;
+
+        Log log = org.apache.commons.logging.LogFactory.getLog("MHP.rule.AfterProvisoining");
+        IdentityService ids = new IdentityService(context);
+
+        System.out.println("Start Generate Dummy Plan step");    
+        System.out.println("identityName::: "+identityName);  
+        System.out.println("nativeIdentity::: "+nativeIdentity);
+        System.out.println("userPrincipalName::: "+userPrincipalName);
+        ProvisioningPlan plan = new ProvisioningPlan();
+        Identity identity = context.getObjectByName(Identity.class, identityName);
+        plan.setIdentity(identity);
+
+        String adApp = "AD-Application";
+        AccountRequest accReq = new AccountRequest();
+        accReq.setApplication(adApp);
+        accReq.setNativeIdentity(nativeIdentity);
+        accReq.setOperation(AccountRequest.Operation.Modify);
+
+        AttributeRequest attributeRequest1 = new AttributeRequest();
+        attributeRequest1.setName("enableRemoteMailbox");  
+        attributeRequest1.setValue("true");
+        accReq.add(attributeRequest1);
+
+        AttributeRequest attributeRequest2 = new AttributeRequest();
+        attributeRequest2.setName("userPrincipalName-dummy"); 
+        String userPrincipalNameFmAD= ids.getLinks(identity,context.getObjectByName(Application.class,"AD-Application")).get(0).getAttributes().get("userPrincipalName");
+
+        attributeRequest2.setValue(userPrincipalNameFmAD);
+        System.out.println("In Workflow from AD userPrincipalName::----"+userPrincipalNameFmAD);
+        accReq.add(attributeRequest2);
+
+        plan.add(accReq);
+        Provisioner provisioner = new Provisioner(context);
+        provisioner.execute(plan);        
+
+        System.out.println("End Generate Dummy Plan step");
+        return plan;			
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+  <Step icon="Stop" name="Stop" posX="437" posY="10"/>
+</Workflow>

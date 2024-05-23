@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1688454506209" id="c0a81db3890c103381891fbb26e10cd7" modified="1688454734707" name="Custom-Identity-Terminate" type="Workflow">
+  <Attributes>
+    <Map>
+      <entry key="pageTitle" value="Terminate Identity"/>
+    </Map>
+  </Attributes>
+  <Button action="next" label="Terminate"/>
+  <Button action="cancel" label="Cancel"/>
+  <Section label="User">
+    <Field displayName="User" filterString="inactive == false" name="user" postBack="true" type="sailpoint.object.Identity"/>
+  </Section>
+</Form>

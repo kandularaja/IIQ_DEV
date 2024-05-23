@@ -1,0 +1,138 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1703574286011" id="c0a800918c7b1d9e818ca4f0aebb1385" language="beanshell" modified="1715767599976" name="Rule_CALL_POWERSHELL_RULE" type="ConnectorAfterCreate">
+  <Source>
+  import org.apache.commons.codec.binary.Base64;
+  import org.apache.commons.logging.Log;
+  import org.apache.commons.logging.LogFactory;
+  import org.json.JSONArray;
+  import org.json.simple.JSONObject;
+  import org.json.simple.parser.JSONParser;
+  import org.json.simple.parser.ParseException;
+  import sailpoint.connector2.ObjectAlreadyExistsException;
+  import sailpoint.tools.CloseableIterator;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Message;
+  import sailpoint.tools.Util;
+  import sailpoint.tools.xml.XMLReferenceResolver;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningPlan.Operation;
+  import sailpoint.object.RpcResponse;
+  import sailpoint.object.RpcRequest;
+  import sailpoint.object.Rule;
+  import sailpoint.connector.RPCService;
+  import sailpoint.api.SailPointFactory;
+  import sailpoint.object.Application;
+  import sailpoint.object.Signature;
+  import sailpoint.object.Argument;
+  
+  /*
+  //C:/Users/Administrator/CreateDomain.ps1
+  //"C:\Share\CreateDomain.ps1"
+
+  String baseDN="OU=Users,OU=Rajasekhar5,DC=Eshiam,DC=com";
+  baseDN= "\"" + baseDN + "\"";
+  // return baseDN;
+  //return baseDN;
+  String depName="AM6666";
+  depName= "\"" + depName + "\"";
+
+  //cmd:::11 C:/Share/CreateDomain.ps1-baseDN void-depName AM6666
+  String cmd ="C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -command  C:/Share/CreateDomain1111.ps1 -baseDN "+ baseDN + " -depName "+ depName;
+  //return cmd;
+  //return cmd;
+  // String cmdddd = cmd+" -depName "\""+ depName + "\""; //"C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -command  C:/Share/CreateDomain.ps1";
+  // "C:\Users\Administrator\OUCreation.ps1 -baseDN "+ basedn +"-depName "+ depName;
+  //  C:\Users\Administrator\OUCreation.ps1 -baseDN $basedn -resourcesDNName $resourcesDNName
+  //String command = cmd + " " + baseDN + " " + depName;
+//return cmd;
+  System.out.println("cmd:::11 "+cmd);
+  try {
+
+
+    java.lang.Process proc = Runtime.getRuntime().exec(cmd);
+    System.out.println("Line:::111111 ");
+
+    InputStream is = proc.getInputStream();
+
+    // return proc.getInputStream();
+
+    InputStreamReader isr = new InputStreamReader(is);
+    BufferedReader reader = new BufferedReader(isr);
+    //return reader.readLine();
+    String line;
+    line = reader.readLine();
+    // return line;
+    while ((line = reader.readLine()) != null) {
+      System.out.println("Line@@@@ "+line);
+    }
+    proc.getOutputStream().close();
+
+    return "FFF";
+
+  } catch (Exception e){
+    System.out.println("Log::  "+e.getMessage());
+    log.error(e.getMessage(), e);
+  }
+  //return "FFF";
+ */
+
+
+  try {
+
+    String IQServiceHostName = "192.168.178.3";
+    int iqServicePort = 5050;
+    Map dataMap = new HashMap();
+    Application ad = context.getObjectByName(Application.class, "AD-Application");
+    dataMap.put("Application", ad.getAttributes());
+
+    System.out.println("Enetered in a rule");
+    //callPowerSdeptNamehellScript("OU=Users,OU=Rajasekhar5,DC=Eshiam,DC=com","Americana Office One");
+
+
+    Rule rule = context.getObjectByName(Rule.class, "AD Powershell");
+    System.out.println("Enetered in a rule 1");
+   
+    System.out.println("Enetered in a rule 8"+rule.toXml());
+    dataMap.put("postScript", rule);
+    // dataMap.put("deptName", "OU=Users,OU=Rajasekhar5,DC=Eshiam,DC=com");
+    // dataMap.put("dnName", "AM 4");
+   
+ AccountRequest accountRequest = new AccountRequest();
+  accountRequest.setApplication("AD-Application"); 
+  accountRequest.setOperation(AccountRequest.Operation.Create);
+ // accountRequest.setNativeIdentity("CN=Alan Snow3,OU=Usres,OU=ACME,DC=seri,DC=sailpointdemo,DC=com");
+  AttributeRequest attributeRequest = new AttributeRequest();
+  attributeRequest.setName("baseDN");  // use this to get a response back
+  //attributeRequest.setOperation(ProvisioningPlan.Operation.Add);
+  attributeRequest.setValue("OU=Users,OU=Rajasekhar5,DC=Eshiam,DC=com");
+  accountRequest.add(attributeRequest);
+    
+    
+      AttributeRequest attributeRequest1 = new AttributeRequest();
+  attributeRequest1.setName("departmentName");  // use this to get a response back
+ // attributeRequest1.setOperation(ProvisioningPlan.Operation.Add);
+  attributeRequest1.setValue("test15052026");
+  accountRequest.add(attributeRequest1);
+    
+    
+    
+   // dataMap.put("Application",ad.getAttributes());
+
+    dataMap.put("Request", accountRequest);
+    RPCService service = new RPCService(IQServiceHostName, iqServicePort,true);
+    service.setConnectorServices(new sailpoint.connector.DefaultConnectorServices());
+    RpcRequest request = new RpcRequest("ScriptExecutor", "runAfterScript" , dataMap); 
+    System.out.println("Enetered in a rule 4");
+     service.execute(request);
+     System.out.println("Enetered in a rule 5");
+    return request;
+   // return service.execute(request);
+  } catch (Exception e){
+    System.out.println("Log::  "+e.getMessage());
+    log.error(e.getMessage(), e);
+  }
+
+  </Source>
+</Rule>
